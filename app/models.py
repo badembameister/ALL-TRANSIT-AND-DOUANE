@@ -171,6 +171,131 @@ class Paiement(Base):
     montant: Mapped[Decimal] = mapped_column(Money)
 
 
+# --- Transport et suivi opérationnel (cahier des charges, point 8) ---
+MISSION_OUVERTE = {"Planifiée", "En cours"}
+
+
+class Chauffeur(Base):
+    __tablename__ = "chauffeurs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nom: Mapped[str] = mapped_column(String(200))
+    telephone: Mapped[str] = mapped_column(String(40), default="")
+    permis: Mapped[str] = mapped_column(String(60), default="")
+    permis_expire: Mapped[Optional[date]] = mapped_column(Date)
+    transporteur: Mapped[str] = mapped_column(String(200), default="")
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Vehicule(Base):
+    __tablename__ = "vehicules"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    immatriculation: Mapped[str] = mapped_column(String(30), unique=True)
+    type: Mapped[str] = mapped_column(String(20))  # Camion | Tracteur | Remorque | Semi-remorque | Fourgon
+    marque: Mapped[str] = mapped_column(String(80), default="")
+    capacite_t: Mapped[Decimal] = mapped_column(Money, default=0)
+    transporteur: Mapped[str] = mapped_column(String(200), default="")
+    assurance_expire: Mapped[Optional[date]] = mapped_column(Date)
+    visite_expire: Mapped[Optional[date]] = mapped_column(Date)
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Conteneur(Base):
+    __tablename__ = "conteneurs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    numero: Mapped[str] = mapped_column(String(11), unique=True)
+    type: Mapped[str] = mapped_column(String(10), default="40HC")
+    dossier_id: Mapped[Optional[int]] = mapped_column(ForeignKey("dossiers.id"))
+    compagnie: Mapped[str] = mapped_column(String(120), default="")
+    navire: Mapped[str] = mapped_column(String(120), default="")
+    bl: Mapped[str] = mapped_column(String(60), default="")
+    plomb: Mapped[str] = mapped_column(String(60), default="")
+    eta: Mapped[Optional[date]] = mapped_column(Date)
+    arrivee: Mapped[Optional[date]] = mapped_column(Date)
+    sortie: Mapped[Optional[date]] = mapped_column(Date)
+    retour: Mapped[Optional[date]] = mapped_column(Date)
+    franchise_port: Mapped[int] = mapped_column(default=10)   # jours sans magasinage au port
+    franchise_retour: Mapped[int] = mapped_column(default=14)  # jours pour restituer le vide (détention)
+    dossier: Mapped[Optional[Dossier]] = relationship()
+
+    @property
+    def statut(self) -> str:
+        if self.retour:
+            return "Restitué"
+        if self.sortie:
+            return "Sorti"
+        return "Au port" if self.arrivee else "Attendu"
+
+    @property
+    def jours_magasinage(self) -> int:
+        """Jours facturables au port, au-delà de la franchise."""
+        if not self.arrivee:
+            return 0
+        return max(0, ((self.sortie or date.today()) - self.arrivee).days - self.franchise_port)
+
+    @property
+    def jours_detention(self) -> int:
+        """Jours de retard de restitution du vide, au-delà de la franchise."""
+        if not self.sortie:
+            return 0
+        return max(0, ((self.retour or date.today()) - self.sortie).days - self.franchise_retour)
+
+    @property
+    def dossier_num(self) -> str:
+        return self.dossier.num if self.dossier else ""
+
+
+class Mission(Base):
+    __tablename__ = "missions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    num: Mapped[str] = mapped_column(String(30), unique=True, default="")
+    type: Mapped[str] = mapped_column(String(20))  # Enlèvement | Livraison | Transfert | Retour vide
+    dossier_id: Mapped[Optional[int]] = mapped_column(ForeignKey("dossiers.id"))
+    conteneur_id: Mapped[Optional[int]] = mapped_column(ForeignKey("conteneurs.id"))
+    vehicule_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vehicules.id"))
+    chauffeur_id: Mapped[Optional[int]] = mapped_column(ForeignKey("chauffeurs.id"))
+    origine: Mapped[str] = mapped_column(String(200))
+    destination: Mapped[str] = mapped_column(String(200))
+    date_prevue: Mapped[date] = mapped_column(Date)
+    debut: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    fin: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    statut: Mapped[str] = mapped_column(String(20), default="Planifiée")
+    instructions: Mapped[str] = mapped_column(Text, default="")
+    receptionnaire: Mapped[str] = mapped_column(String(200), default="")
+    note_livraison: Mapped[str] = mapped_column(Text, default="")
+    signature: Mapped[str] = mapped_column(Text, default="", deferred=True)  # image PNG en data URL
+    position: Mapped[Optional[dict]] = mapped_column(JSON)  # dernière position GPS {lat, lng, ts}
+    incidents: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    dossier: Mapped[Optional[Dossier]] = relationship()
+    conteneur: Mapped[Optional[Conteneur]] = relationship()
+    vehicule: Mapped[Optional[Vehicule]] = relationship()
+    chauffeur: Mapped[Optional[Chauffeur]] = relationship()
+
+    @property
+    def en_retard(self) -> bool:
+        return self.statut in MISSION_OUVERTE and self.date_prevue < date.today()
+
+    @property
+    def signee(self) -> bool:
+        return bool(self.signature)
+
+    @property
+    def dossier_num(self) -> str:
+        return self.dossier.num if self.dossier else ""
+
+    @property
+    def conteneur_num(self) -> str:
+        return self.conteneur.numero if self.conteneur else ""
+
+    @property
+    def vehicule_immat(self) -> str:
+        return self.vehicule.immatriculation if self.vehicule else ""
+
+    @property
+    def chauffeur_nom(self) -> str:
+        return self.chauffeur.nom if self.chauffeur else ""
+
+
 class Param(Base):
     __tablename__ = "params"
     key: Mapped[str] = mapped_column(String(40), primary_key=True)

@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+alliance.db
+.env
+.vercel
+.pytest_cache/

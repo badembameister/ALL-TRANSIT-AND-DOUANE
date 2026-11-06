@@ -228,3 +228,144 @@ class ParamsIn(BaseModel):
     reg: list[str]
     taxes: list[TaxIn]
     sh: list[ShIn]
+
+
+# --- Transport et suivi opérationnel ---
+TypeVehicule = Literal["Camion", "Tracteur", "Remorque", "Semi-remorque", "Fourgon"]
+TypeConteneur = Literal["20", "40", "40HC", "45HC", "20RF", "40RF", "Autre"]
+TypeMission = Literal["Enlèvement", "Livraison", "Transfert", "Retour vide"]
+StatutMission = Literal["Planifiée", "En cours", "Livrée", "Annulée"]
+
+
+def iso6346(n: str) -> str:
+    """Numéro de conteneur : 4 lettres (propriétaire + catégorie) + 6 chiffres + chiffre de contrôle ISO 6346."""
+    n = "".join(n.split()).replace("-", "").upper()
+    if len(n) != 11 or not n[:4].isalpha() or not n[4:].isdigit():
+        raise ValueError("Numéro de conteneur invalide : 4 lettres puis 7 chiffres (ex. CSQU3054383)")
+    val = {}
+    v = 10
+    for ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        if v % 11 == 0:
+            v += 1
+        val[ch] = v
+        v += 1
+    total = sum((val[c] if c.isalpha() else int(c)) * 2 ** i for i, c in enumerate(n[:10]))
+    if total % 11 % 10 != int(n[10]):
+        raise ValueError(f"Chiffre de contrôle incorrect pour {n} (attendu : {total % 11 % 10})")
+    return n
+
+
+class ChauffeurIn(BaseModel):
+    nom: str = Field(min_length=2)
+    telephone: str = ""
+    permis: str = ""
+    permis_expire: Optional[date] = None
+    transporteur: str = ""
+    actif: bool = True
+
+
+class ChauffeurOut(ChauffeurIn, ORM):
+    id: int
+
+
+class VehiculeIn(BaseModel):
+    immatriculation: str = Field(min_length=3)
+    type: TypeVehicule = "Camion"
+    marque: str = ""
+    capacite_t: Decimal = Field(default=0, ge=0)
+    transporteur: str = ""
+    assurance_expire: Optional[date] = None
+    visite_expire: Optional[date] = None
+    actif: bool = True
+
+    @field_validator("immatriculation")
+    @classmethod
+    def _immat(cls, v: str) -> str:
+        return " ".join(v.upper().split())
+
+
+class VehiculeOut(VehiculeIn, ORM):
+    id: int
+
+
+class ConteneurIn(BaseModel):
+    numero: str
+    type: TypeConteneur = "40HC"
+    dossier_id: Optional[int] = None
+    compagnie: str = ""
+    navire: str = ""
+    bl: str = ""
+    plomb: str = ""
+    eta: Optional[date] = None
+    arrivee: Optional[date] = None
+    sortie: Optional[date] = None
+    retour: Optional[date] = None
+    franchise_port: int = Field(default=10, ge=0)
+    franchise_retour: int = Field(default=14, ge=0)
+    _n = field_validator("numero")(iso6346)
+
+
+class ConteneurOut(ConteneurIn, ORM):
+    id: int
+    statut: str
+    jours_magasinage: int
+    jours_detention: int
+    dossier_num: str
+
+
+class MissionIn(BaseModel):
+    type: TypeMission
+    dossier_id: Optional[int] = None
+    conteneur_id: Optional[int] = None
+    vehicule_id: Optional[int] = None
+    chauffeur_id: Optional[int] = None
+    origine: str = Field(min_length=2)
+    destination: str = Field(min_length=2)
+    date_prevue: date
+    instructions: str = ""
+
+
+class MissionOut(MissionIn, ORM):
+    id: int
+    num: str
+    statut: str
+    debut: Optional[datetime]
+    fin: Optional[datetime]
+    receptionnaire: str
+    note_livraison: str
+    signee: bool
+    position: Optional[dict]
+    incidents: list
+    en_retard: bool
+    dossier_num: str
+    conteneur_num: str
+    vehicule_immat: str
+    chauffeur_nom: str
+
+
+class MissionStatutIn(BaseModel):
+    to: Literal["En cours", "Annulée"]
+    motif: str = ""
+
+
+class LivraisonIn(BaseModel):
+    receptionnaire: str = Field(min_length=2)
+    note: str = ""
+    signature: str = ""  # data:image/png;base64,...
+
+    @field_validator("signature")
+    @classmethod
+    def _sig(cls, v: str) -> str:
+        if v and (not v.startswith("data:image/png;base64,") or len(v) > 300_000):
+            raise ValueError("Signature invalide (image PNG de 300 Ko maximum)")
+        return v
+
+
+class PositionIn(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+class MissionIncidentIn(BaseModel):
+    type: Literal["Retard", "Panne", "Accident", "Contrôle routier", "Marchandise endommagée", "Refus de livraison", "Autre"]
+    note: str = ""

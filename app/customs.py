@@ -5,7 +5,8 @@ from decimal import ROUND_HALF_UP, Decimal as D
 DOC_TYPES = {
     "facture": "Facture commerciale", "packing": "Packing list", "bl": "Connaissement / LTA",
     "cmr": "Lettre de voiture CMR", "origine": "Certificat d'origine", "dum": "DUM / déclaration",
-    "quittance": "Quittance de paiement", "autre": "Autre document",
+    "quittance": "Quittance de paiement", "pod": "Preuve de livraison",
+    "photo": "Photo de chargement / déchargement", "autre": "Autre document",
 }
 DEFAULT_PARAMS = {
     "base": "GNF",

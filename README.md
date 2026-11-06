@@ -34,6 +34,16 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 ## Interface
 `public/index.html` exige maintenant une connexion à l'API (comptes et rôles réels). Les modules dossiers, transit, douane et facturation tournent encore sur des données de démonstration stockées dans le navigateur : les brancher sur l'API est l'étape suivante.
 
+## Module Opérations (transport et suivi opérationnel)
+Menu « Opérations », ouvert à l'administrateur, au responsable transit, à l'agent opérationnel (lecture et écriture) et à la direction (lecture). Entièrement branché sur l'API.
+- **Planning des missions** : enlèvement, livraison, transfert, retour vide. Affectation d'un véhicule et d'un chauffeur, refus des doubles affectations le même jour, démarrage, incidents, annulation motivée, dernière position GPS (géolocalisation du téléphone ou saisie manuelle ; `POST /api/missions/{id}/position` est prêt pour un boîtier GPS).
+- **Preuve de livraison** : nom du réceptionnaire, observations, signature tactile et photo facultative rangée dans les documents du dossier (type « Preuve de livraison »).
+- **Conteneurs** : numéro contrôlé selon la norme ISO 6346, compagnie, navire, BL, ETA, arrivée, sortie, restitution du vide. Calcul des jours de magasinage et de détention au-delà des franchises. La sortie est enregistrée au démarrage d'un enlèvement, la restitution à la livraison d'un retour vide.
+- **Parc** : véhicules et chauffeurs, avec alertes à 30 jours sur l'assurance, la visite technique et le permis.
+- **Synthèse** : `GET /api/operations/resume` (missions du jour, en cours, en retard, conteneurs, véhicules disponibles, alertes).
+
+Les nouvelles tables sont créées automatiquement au premier appel ; aucune table existante n'est modifiée.
+
 ## Développement local
     python -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
     uvicorn app.main:app --reload     # SQLite par défaut, documentation sur /docs
@@ -43,6 +53,6 @@ Avec Docker : `DB_PASSWORD=... SECRET_KEY=... ADMIN_PASSWORD=... docker compose 
 
 ## État par rapport au cahier des charges
 Fait : clients et utilisateurs (8 rôles), dossiers, documents, transit, douane (liquidation, contrôles, messages), facturation multi-devises, tableau de bord, audit, paramétrage des taxes.
-À faire : liaison réelle avec SYDONIA World (`app/gateway.py`, simulée), interface branchée sur l'API et portail client, application mobile chauffeur, GPS et SMS/WhatsApp, migrations Alembic.
+À faire : liaison réelle avec SYDONIA World (`app/gateway.py`, simulée), interface branchée sur l'API et portail client, application mobile chauffeur dédiée (l'écran Opérations fonctionne déjà sur téléphone), boîtiers GPS et SMS/WhatsApp, migrations Alembic.
 
 Taux de change, redevance statistique et prélèvement CEDEAO sont des valeurs d'exemple (`app/customs.py`, modifiables par `PUT /api/params`) : à caler sur une quittance SYDONIA réelle.
