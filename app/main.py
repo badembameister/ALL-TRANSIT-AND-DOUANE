@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from .customs import DEFAULT_PARAMS
@@ -24,12 +24,12 @@ def init_db() -> None:
     if os.getenv("VERCEL") and not password:
         raise RuntimeError("ADMIN_PASSWORD doit être défini dans les variables d'environnement Vercel")
     Base.metadata.create_all(engine)
-    email = os.getenv("ADMIN_EMAIL", "admin@alliance.local")
+    email = os.getenv("ADMIN_EMAIL", "admin@alliance.local").strip().lower()
     try:
         with SessionLocal() as db:
             if not db.get(Param, "douane"):
                 db.add(Param(key="douane", value=DEFAULT_PARAMS))
-            if not db.scalar(select(User).where(User.email == email)):
+            if not db.scalar(select(User).where(func.lower(User.email) == email)):
                 db.add(User(email=email, nom="Administrateur", role="Administrateur",
                             pwd=hash_pwd(password or "ChangeMe!2026")))
             db.commit()

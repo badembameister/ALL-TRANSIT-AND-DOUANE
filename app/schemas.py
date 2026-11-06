@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .security import ROLES
 
@@ -15,12 +15,45 @@ class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+def strong(p: str) -> str:
+    if len(p) < 10 or not any(c.isalpha() for c in p) or not any(c.isdigit() for c in p):
+        raise ValueError("Le mot de passe doit contenir au moins 10 caractères, avec des lettres et des chiffres")
+    return p
+
+
+def clean_email(e: str) -> str:
+    e = e.strip().lower()
+    if "@" not in e or " " in e or len(e) < 5:
+        raise ValueError("Adresse e-mail invalide")
+    return e
+
+
 class UserIn(BaseModel):
     email: str
-    nom: str
+    nom: str = Field(min_length=2)
     role: Role
-    password: str = Field(min_length=10)
+    password: str
     client_id: Optional[int] = None
+    _e = field_validator("email")(clean_email)
+    _p = field_validator("password")(strong)
+
+
+class UserPatch(BaseModel):
+    nom: Optional[str] = Field(default=None, min_length=2)
+    role: Optional[Role] = None
+    actif: Optional[bool] = None
+    client_id: Optional[int] = None
+
+
+class PasswordIn(BaseModel):
+    password: str
+    _p = field_validator("password")(strong)
+
+
+class ChangePwdIn(BaseModel):
+    ancien: str
+    nouveau: str
+    _p = field_validator("nouveau")(strong)
 
 
 class UserOut(ORM):
@@ -29,6 +62,7 @@ class UserOut(ORM):
     nom: str
     role: str
     client_id: Optional[int]
+    actif: bool
 
 
 class ClientIn(BaseModel):

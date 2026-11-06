@@ -98,3 +98,24 @@ def test_montage_vercel(c):
     assert v.get("/api/health").json() == {"status": "ok"}
     r = v.post("/api/auth/login", data={"username": "admin@alliance.local", "password": "ChangeMe!2026"})
     assert r.status_code == 200 and r.json()["role"] == "Administrateur"
+
+
+def test_gestion_utilisateurs(c):
+    assert c.post("/users", json={"email": "x@a.gn", "nom": "X", "role": "Agent opérationnel", "password": "court"}).status_code == 422
+    assert c.post("/users", json={"email": "x@a.gn", "nom": "X Y", "role": "Client", "password": "MotDePasse!123"}).status_code == 422
+    u = c.post("/users", json={"email": " Agent@A.GN ", "nom": "Agent Un", "role": "Agent opérationnel", "password": "MotDePasse!123"})
+    assert u.status_code == 201 and u.json()["email"] == "agent@a.gn" and u.json()["actif"] is True
+    uid = u.json()["id"]
+    assert c.post("/users", json={"email": "AGENT@a.gn", "nom": "Doublon", "role": "Agent opérationnel", "password": "MotDePasse!123"}).status_code == 409
+    assert c.patch(f"/users/{uid}", json={"role": "Comptable"}).json()["role"] == "Comptable"
+    me = c.get("/auth/me").json()["id"]
+    assert c.patch(f"/users/{me}", json={"actif": False}).status_code == 422
+    assert c.post(f"/users/{uid}/password", json={"password": "NouveauPass2026"}).status_code == 204
+    ok = c.post("/auth/login", data={"username": "AGENT@a.gn", "password": "NouveauPass2026"})
+    assert ok.status_code == 200
+    h = {"Authorization": f"Bearer {ok.json()['access_token']}"}
+    assert c.get("/users", headers=h).status_code == 403
+    assert c.post("/auth/change-password", json={"ancien": "faux", "nouveau": "Autre2026Pass"}, headers=h).status_code == 403
+    assert c.post("/auth/change-password", json={"ancien": "NouveauPass2026", "nouveau": "Autre2026Pass"}, headers=h).status_code == 204
+    assert c.patch(f"/users/{uid}", json={"actif": False}).json()["actif"] is False
+    assert c.post("/auth/login", data={"username": "agent@a.gn", "password": "Autre2026Pass"}).status_code == 401

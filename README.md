@@ -14,6 +14,16 @@ En ligne de commande : `npm i -g vercel && vercel --prod`.
 
 L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 
+## Comptes et utilisateurs
+- **Compte administrateur** : il est créé automatiquement au premier appel de l'API, à partir de `ADMIN_EMAIL` et `ADMIN_PASSWORD`. Connectez-vous avec ces identifiants sur la page d'accueil.
+- **Créer ou réinitialiser un administrateur à la main** (par exemple si le mot de passe est perdu), depuis votre ordinateur, avec l'URL de la base :
+
+      DATABASE_URL="postgresql://..." python -m scripts.create_admin admin@exemple.com 'MotDePasse2026!'
+
+- **Gestion des utilisateurs** : l'administrateur ouvre l'onglet « Utilisateurs » pour créer un compte, changer son rôle, le désactiver ou réinitialiser son mot de passe. Chaque utilisateur change son propre mot de passe avec « Mon mot de passe ».
+- Règles : mot de passe de 10 caractères minimum avec lettres et chiffres, e-mail unique (sans distinction de casse), un utilisateur « Client » est rattaché à un client, un administrateur ne peut pas se désactiver lui-même. Toutes les actions sont tracées dans le journal d'audit.
+- Les rôles : Administrateur, Responsable transit, Déclarant en douane, Agent opérationnel, Comptable, Commercial, Client, Direction.
+
 ## Limites de l'hébergement Vercel à connaître
 - Les fonctions n'ont pas de disque persistant : les documents sont stockés dans PostgreSQL. Taille limitée à 4 Mo par fichier (plafond de Vercel : 4,5 Mo par requête). Pour des scans plus lourds, passer à un stockage objet (Vercel Blob, S3).
 - Démarrage à froid : le premier appel après une période d'inactivité est plus lent.
@@ -22,7 +32,7 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 - Souveraineté des données : choisissez la région de la base selon vos exigences (point 17 du cahier des charges).
 
 ## Interface
-`public/index.html` est le prototype : il fonctionne en mode démonstration, avec ses données dans le navigateur. Le brancher sur l'API (connexion, dossiers, douane, facturation) est l'étape suivante.
+`public/index.html` exige maintenant une connexion à l'API (comptes et rôles réels). Les modules dossiers, transit, douane et facturation tournent encore sur des données de démonstration stockées dans le navigateur : les brancher sur l'API est l'étape suivante.
 
 ## Développement local
     python -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
