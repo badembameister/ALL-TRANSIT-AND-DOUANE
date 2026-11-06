@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: alliance
+      POSTGRES_USER: alliance
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?définir DB_PASSWORD}
+    volumes: [pgdata:/var/lib/postgresql/data]
+  api:
+    build: .
+    depends_on: [db]
+    ports: ["8000:8000"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://alliance:${DB_PASSWORD}@db:5432/alliance
+      SECRET_KEY: ${SECRET_KEY:?définir SECRET_KEY}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@alliance.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?définir ADMIN_PASSWORD}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+volumes: {pgdata: {}}
