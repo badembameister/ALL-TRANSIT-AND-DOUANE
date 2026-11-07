@@ -55,7 +55,7 @@ def test_flux_complet(c):
         assert c.post(f"/dossiers/{did}/declaration/messages", json={"statut": s}).json()["statut"] == s
 
     # Transit : machine à états
-    assert c.post(f"/dossiers/{did}/transit", json={"bureau_depart": "Port de Conakry", "bureau_destination": "Frontière", "delai_jours": 7}).status_code == 201
+    assert c.post(f"/dossiers/{did}/transit", json={"bureau_depart": "Port de Conakry", "bureau_destination": "Frontière", "delai_jours": 7, "vehicule": "RC 1", "scelle": "S-1", "garantie": "Caution"}).status_code == 201
     assert c.post(f"/dossiers/{did}/transit/transition", json={"to": "Apurée"}).status_code == 409
     for s in ("Déposée", "Acceptée", "En circulation", "Arrivée à destination", "Apurée"):
         assert c.post(f"/dossiers/{did}/transit/transition", json={"to": s}).json()["statut"] == s

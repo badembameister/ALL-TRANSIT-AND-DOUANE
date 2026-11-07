@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from .customs import DEFAULT_PARAMS
-from .db import Base, SessionLocal, engine
+from .db import Base, SessionLocal, engine, sync_columns
 from .models import Param, User
 from .routes import admin, auth, clients, dossiers, douane, finance, operations, transit
 from .security import hash_pwd
@@ -24,6 +24,7 @@ def init_db() -> None:
     if os.getenv("VERCEL") and not password:
         raise RuntimeError("ADMIN_PASSWORD doit être défini dans les variables d'environnement Vercel")
     Base.metadata.create_all(engine)
+    sync_columns()
     email = os.getenv("ADMIN_EMAIL", "admin@alliance.local").strip().lower()
     try:
         with SessionLocal() as db:

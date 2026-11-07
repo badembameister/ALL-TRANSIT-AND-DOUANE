@@ -34,6 +34,14 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 ## Interface
 `public/index.html` exige maintenant une connexion à l'API (comptes et rôles réels). Les modules dossiers, transit, douane et facturation tournent encore sur des données de démonstration stockées dans le navigateur : les brancher sur l'API est l'étape suivante.
 
+## Module Transit
+Menu « Transit », branché sur l'API (lecture pour tout le personnel, écriture pour le responsable transit et l'agent opérationnel).
+- **Déclaration** rattachée à un dossier (création rapide du dossier et du client depuis l'écran si besoin) : bureaux de départ, de passage et de destination, itinéraire, expéditeur, destinataire, transporteur et marchandises (repris du dossier par défaut), véhicule et chauffeur du parc, scellés, garantie et montant, délai de route. Numéro automatique `TR-AAAA-NNNN`.
+- **Suivi** : en préparation, déposée (transmise via la passerelle douanière, simulée pour l'instant), acceptée (référence douanière), en circulation, contrôlée, arrivée à destination, apurée, ou rejetée (motif obligatoire, puis correction et nouveau dépôt).
+- **Contrôles** : pas de mise en circulation sans véhicule, scellé et garantie ; pas d'apurement tant qu'un bureau de passage n'est pas constaté (régularisation possible après l'arrivée) ; modification seulement en préparation ou après rejet.
+- **Alertes** : délai de route dépassé, scellé cassé. **Historique** des échanges avec la douane (envois, réceptions, notes internes) et des incidents.
+- La table `transits` existante reçoit ses nouvelles colonnes automatiquement au démarrage (`app/db.py`, `sync_columns`) ; les déclarations déjà enregistrées restent lisibles.
+
 ## Module Opérations (transport et suivi opérationnel)
 Menu « Opérations », ouvert à l'administrateur, au responsable transit, à l'agent opérationnel (lecture et écriture) et à la direction (lecture). Entièrement branché sur l'API.
 - **Planning des missions** : enlèvement, livraison, transfert, retour vide. Affectation d'un véhicule et d'un chauffeur, refus des doubles affectations le même jour, démarrage, incidents, annulation motivée, dernière position GPS (géolocalisation du téléphone ou saisie manuelle ; `POST /api/missions/{id}/position` est prêt pour un boîtier GPS).

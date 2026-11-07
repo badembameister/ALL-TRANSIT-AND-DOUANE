@@ -119,31 +119,88 @@ class DocumentOut(ORM):
     created_at: datetime
 
 
+class PassageIn(BaseModel):
+    bureau: str = Field(min_length=2)
+
+
 class TransitIn(BaseModel):
-    bureau_depart: str
-    bureau_destination: str
+    bureau_depart: str = Field(min_length=2)
+    bureau_destination: str = Field(min_length=2)
+    bureaux_passage: list[str] = Field(default_factory=list, description="Bureaux de passage, dans l'ordre")
+    itineraire: str = ""
+    expediteur: str = ""
+    destinataire: str = ""
+    transporteur: str = ""
+    marchandises: str = ""
     vehicule: str = ""
-    scelle: str = ""
+    vehicule_id: Optional[int] = None
+    chauffeur_id: Optional[int] = None
+    scelle: str = Field(default="", max_length=60, description="Numéros de scellés, séparés par des virgules")
     garantie: str = ""
-    delai_jours: int = Field(default=7, ge=1)
+    garantie_montant: Decimal = Field(default=0, ge=0)
+    delai_jours: int = Field(default=7, ge=1, le=90)
 
 
-class TransitOut(TransitIn, ORM):
+class TransitOut(ORM):
     id: int
     dossier_id: int
+    num: str = ""
+    ref_douane: str = ""
     statut: str
+    bureau_depart: str
+    bureau_destination: str
+    passages: list = []
+    itineraire: str = ""
+    expediteur: str = ""
+    destinataire: str = ""
+    transporteur: str = ""
+    marchandises: str = ""
+    vehicule: str
+    vehicule_id: Optional[int] = None
+    chauffeur_id: Optional[int] = None
+    chauffeur_nom: str = ""
+    scelle: str
+    garantie: str
+    garantie_montant: Decimal = Decimal(0)
+    delai_jours: int
     depart: Optional[date]
-    incidents: list
+    echeance: Optional[date]
+    arrivee: Optional[date] = None
+    apurement: Optional[date] = None
+    incidents: list = []
+    messages: list = []
     en_retard: bool
+    scelle_casse: bool
+    dossier_num: str
+    client_nom: str
+
+    @field_validator("passages", "messages", "incidents", mode="before")
+    @classmethod
+    def _liste(cls, v):
+        return v or []
+
+    @field_validator("num", "ref_douane", "itineraire", "expediteur", "destinataire", "transporteur", "marchandises",
+                     mode="before")
+    @classmethod
+    def _texte(cls, v):
+        return v or ""
 
 
 class TransitionIn(BaseModel):
-    to: str
+    to: Literal["En préparation", "Déposée", "Acceptée", "En circulation", "Contrôlée", "Arrivée à destination",
+                "Apurée", "Rejetée"]
+    motif: str = ""
+    ref_douane: str = ""
 
 
 class IncidentIn(BaseModel):
     type: Literal["Retard", "Contrôle", "Scellé cassé", "Anomalie", "Régularisation"]
     note: str = ""
+
+
+class TransitMessageIn(BaseModel):
+    sens: Literal["envoi", "réception", "interne"]
+    texte: str = Field(min_length=2)
 
 
 class MessageOut(ORM):

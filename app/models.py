@@ -81,11 +81,49 @@ class Transit(Base):
     depart: Mapped[Optional[date]] = mapped_column(Date)
     delai_jours: Mapped[int] = mapped_column(default=7)
     incidents: Mapped[list] = mapped_column(JSON, default=list)
+    # Colonnes ajoutées par la migration automatique (db.sync_columns) : valeurs par défaut côté base.
+    num: Mapped[str] = mapped_column(String(30), default="", server_default="")
+    ref_douane: Mapped[str] = mapped_column(String(60), default="", server_default="")
+    expediteur: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    destinataire: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    transporteur: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    marchandises: Mapped[str] = mapped_column(Text, default="", server_default="")
+    itineraire: Mapped[str] = mapped_column(Text, default="", server_default="")
+    garantie_montant: Mapped[Decimal] = mapped_column(Money, default=0, server_default="0")
+    vehicule_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vehicules.id"))
+    chauffeur_id: Mapped[Optional[int]] = mapped_column(ForeignKey("chauffeurs.id"))
+    passages: Mapped[Optional[list]] = mapped_column(JSON)  # [{"bureau": str, "date": "AAAA-MM-JJ" | None}]
+    messages: Mapped[Optional[list]] = mapped_column(JSON)  # [{"ts", "sens", "texte"}]
+    arrivee: Mapped[Optional[date]] = mapped_column(Date)
+    apurement: Mapped[Optional[date]] = mapped_column(Date)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
     dossier: Mapped[Dossier] = relationship(back_populates="transit")
+    vehicule_parc: Mapped[Optional["Vehicule"]] = relationship()
+    chauffeur: Mapped[Optional["Chauffeur"]] = relationship()
+
+    @property
+    def echeance(self) -> Optional[date]:
+        return self.depart + timedelta(days=self.delai_jours) if self.depart else None
 
     @property
     def en_retard(self) -> bool:
-        return bool(self.statut in OPEN_TRANSIT and self.depart and self.depart + timedelta(days=self.delai_jours) < date.today())
+        return bool(self.statut in OPEN_TRANSIT and self.echeance and self.echeance < date.today())
+
+    @property
+    def scelle_casse(self) -> bool:
+        return any(i.get("type") == "Scellé cassé" for i in self.incidents or [])
+
+    @property
+    def dossier_num(self) -> str:
+        return self.dossier.num
+
+    @property
+    def client_nom(self) -> str:
+        return self.dossier.client.nom
+
+    @property
+    def chauffeur_nom(self) -> str:
+        return self.chauffeur.nom if self.chauffeur else ""
 
 
 class Declaration(Base):

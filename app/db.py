@@ -1,6 +1,7 @@
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -29,3 +30,27 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def sync_columns() -> list[str]:
+    """Ajoute aux tables existantes les colonnes déclarées dans les modèles mais absentes de la base.
+    Migration minimale et idempotente (pas d'Alembic pour l'instant) : uniquement des ajouts, jamais de suppression."""
+    ajouts = []
+    insp = inspect(engine)
+    for table in Base.metadata.sorted_tables:
+        if not insp.has_table(table.name):
+            continue
+        existantes = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in existantes:
+                continue
+            ddl = f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col.type.compile(engine.dialect)}"
+            if col.server_default is not None:
+                ddl += f" DEFAULT '{col.server_default.arg}'"
+            try:
+                with engine.begin() as cx:
+                    cx.execute(text(ddl))
+                ajouts.append(f"{table.name}.{col.name}")
+            except DBAPIError:  # démarrage à froid concurrent : la colonne vient d'être ajoutée ailleurs
+                pass
+    return ajouts
