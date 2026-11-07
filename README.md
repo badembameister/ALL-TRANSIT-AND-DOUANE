@@ -32,7 +32,13 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 - Souveraineté des données : choisissez la région de la base selon vos exigences (point 17 du cahier des charges).
 
 ## Interface
-`public/index.html` exige maintenant une connexion à l'API (comptes et rôles réels). Les modules dossiers, transit, douane et facturation tournent encore sur des données de démonstration stockées dans le navigateur : les brancher sur l'API est l'étape suivante.
+`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Opérations et Utilisateurs sont branchés sur l'API. Le tableau de bord, les listes Douane et Facturation, Clients et Administration utilisent encore des données de démonstration stockées dans le navigateur.
+
+## Module Dossiers
+Menu « Dossiers », branché sur l'API ; un client ne voit que ses propres dossiers.
+- **Liste et recherche** par numéro, client (nom ou code), référence, désignation, code SH, numéro de conteneur, référence de déclaration ou de transit ; filtres par statut et par type.
+- **Création et modification** (responsable transit) avec création du client à la volée, incoterm, agent en douane, lieu de livraison. Un dossier clôturé n'est plus modifiable ; un dossier facturé ne change plus de client.
+- **Fiche** en onglets : résumé et étapes opérationnelles (dates prévues et réelles, écarts, retards ; les dates réelles se remplissent seules à partir des conteneurs, de la douane, du transit, des missions et de la facture), documents (pièces obligatoires, dépôt versionné, téléchargement), douane (liquidation, contrôles, transmission, réponses, messages), transit, opérations (conteneurs et missions), facturation avec coûts engagés et marge, journal (y compris missions et conteneurs).
 
 ## Module Transit
 Menu « Transit », branché sur l'API (lecture pour tout le personnel, écriture pour le responsable transit et l'agent opérationnel).

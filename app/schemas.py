@@ -1,3 +1,4 @@
+import datetime as _dt
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
@@ -95,6 +96,9 @@ class DossierIn(BaseModel):
     origine: str = ""
     fret: Decimal = Field(default=0, ge=0)
     assurance: Decimal = Field(default=0, ge=0)
+    agent_douanier: str = ""
+    incoterm: Literal["", "EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"] = ""
+    lieu_livraison: str = ""
 
 
 class DossierOut(DossierIn, ORM):
@@ -103,6 +107,46 @@ class DossierOut(DossierIn, ORM):
     statut: str
     completude: int
     created_at: datetime
+    client_nom: str = ""
+    transit_statut: str = ""
+    declaration_statut: str = ""
+    facture_statut: str = ""
+    incoterm: str = ""
+
+    @field_validator("agent_douanier", "incoterm", "lieu_livraison", "regime", "ref", "fournisseur", "destinataire",
+                     "transporteur", "origine", mode="before")
+    @classmethod
+    def _texte(cls, v):
+        return v or ""
+
+
+class JalonIn(BaseModel):
+    prevue: Optional[date] = None
+    reelle: Optional[date] = None
+
+
+CategorieCout = Literal["Transport", "Manutention", "Magasinage", "Frais portuaires", "Droits et taxes", "Honoraires agent",
+                        "Frais bancaires", "Autre"]
+
+
+class CoutIn(BaseModel):
+    categorie: CategorieCout
+    libelle: str = Field(min_length=2)
+    fournisseur: str = ""
+    montant: Decimal = Field(gt=0)
+    devise: str = "GNF"
+    date: Optional[_dt.date] = None
+
+
+class CoutOut(ORM):
+    id: int
+    categorie: str
+    libelle: str
+    fournisseur: str
+    montant: float
+    devise: str
+    date: date
+    saisi_par: str
 
 
 class StatutIn(BaseModel):

@@ -56,7 +56,13 @@ class Dossier(Base):
     assurance: Mapped[Decimal] = mapped_column(Money, default=0)
     statut: Mapped[str] = mapped_column(String(20), default="Ouvert")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Colonnes ajoutées par la migration automatique (db.sync_columns)
+    agent_douanier: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    incoterm: Mapped[str] = mapped_column(String(3), default="", server_default="")
+    lieu_livraison: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    jalons: Mapped[Optional[dict]] = mapped_column(JSON)  # {clé: {"prevue": "AAAA-MM-JJ", "reelle": ...}} saisis à la main
     client: Mapped[Client] = relationship()
+    couts: Mapped[list["Cout"]] = relationship(order_by="Cout.id", cascade="all, delete-orphan")
     transit: Mapped[Optional["Transit"]] = relationship(back_populates="dossier", uselist=False)
     declaration: Mapped[Optional["Declaration"]] = relationship(back_populates="dossier", uselist=False)
     facture: Mapped[Optional["Facture"]] = relationship(back_populates="dossier", uselist=False)
@@ -66,6 +72,22 @@ class Dossier(Base):
     def completude(self) -> int:
         req, have = required_docs(self.type), {x.type for x in self.documents}
         return round(100 * len([r for r in req if r in have]) / len(req))
+
+    @property
+    def client_nom(self) -> str:
+        return self.client.nom
+
+    @property
+    def transit_statut(self) -> str:
+        return self.transit.statut if self.transit else ""
+
+    @property
+    def declaration_statut(self) -> str:
+        return self.declaration.statut if self.declaration else ""
+
+    @property
+    def facture_statut(self) -> str:
+        return self.facture.statut if self.facture else ""
 
 
 class Transit(Base):
@@ -143,6 +165,20 @@ class DeclMessage(Base):
     sens: Mapped[str] = mapped_column(String(10))  # envoi | réception | interne
     texte: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Cout(Base):
+    """Coût engagé sur un dossier (achat de prestation, débours) pour suivre la marge."""
+    __tablename__ = "dossier_couts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dossier_id: Mapped[int] = mapped_column(ForeignKey("dossiers.id"))
+    categorie: Mapped[str] = mapped_column(String(40))
+    libelle: Mapped[str] = mapped_column(String(200))
+    fournisseur: Mapped[str] = mapped_column(String(200), default="")
+    montant: Mapped[Decimal] = mapped_column(Money)
+    devise: Mapped[str] = mapped_column(String(3), default="GNF")
+    date: Mapped[date] = mapped_column(Date, default=date.today)
+    saisi_par: Mapped[str] = mapped_column(String(200), default="")
 
 
 class Document(Base):
