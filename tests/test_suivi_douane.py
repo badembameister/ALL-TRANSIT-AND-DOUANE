@@ -1,5 +1,6 @@
 """Module douane : liste, synthèse, dates et délai de dédouanement, liquidation figée, quittance, rejet."""
 import os
+import uuid
 import tempfile
 from datetime import datetime, timedelta
 
@@ -20,7 +21,7 @@ def c():
 
 
 def dossier_pret(c, type_="Import", sh="100630"):
-    cli = c.post("/clients", json={"nom": "Importateur Douane", "nif": "NIF-DN"}).json()
+    cli = c.post("/clients", json={"nom": "Importateur Douane", "nif": f"NIF-DN-{uuid.uuid4().hex[:8]}"}).json()
     d = c.post("/dossiers", json=dict(type=type_, client_id=cli["id"], designation="Riz", code_sh=sh, colis=10, poids=1000,
                                       valeur=10000, devise="USD")).json()
     for t in (("facture", "packing") if type_ == "Export" else ("facture", "packing", "bl")):

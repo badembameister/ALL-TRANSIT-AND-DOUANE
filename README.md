@@ -32,7 +32,15 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 - Souveraineté des données : choisissez la région de la base selon vos exigences (point 17 du cahier des charges).
 
 ## Interface
-`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Douane, Opérations, Facturation et Utilisateurs sont branchés sur l'API. Le tableau de bord, Clients et Administration utilisent encore des données de démonstration stockées dans le navigateur.
+`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Douane, Opérations, Facturation, Clients et Utilisateurs sont branchés sur l'API. Le tableau de bord et l'Administration utilisent encore des données de démonstration stockées dans le navigateur.
+
+## Module Clients et partenaires
+Menu « Clients » : clients, fournisseurs, transporteurs, agents étrangers, destinataires et administrations (création et modification par le commercial et le responsable transit).
+- **Code unique** par type (`C0001` client, `F` fournisseur, `T` transporteur, `A` agent étranger, `D` destinataire, `X` administration) ; NIF unique par type de partenaire.
+- **Fiche** : informations juridiques et fiscales (NIF, RCCM, adresse), coordonnées, devise et délai de paiement, plafond de crédit, banque et compte, notes, statut actif ou inactif.
+- **Contacts multiples** avec contact principal ; **documents** (agrément, carte de commerçant, RCCM, attestations, contrats) avec date d'expiration et alerte à 30 jours (dépôt aussi par le comptable).
+- **Historique des opérations** : dossiers du client, ou, pour un partenaire, dossiers où il figure comme fournisseur, destinataire, transporteur ou agent en douane. **Situation financière** : facturé sur 12 mois, encours comparé au plafond, factures en retard.
+- **Recherche** par nom, code, NIF, RCCM, ville, numéro de dossier, conteneur ou référence douanière. Les dossiers ne proposent que les clients actifs.
 
 ## Module Douane
 Menu « Douane » (personnel), traitement dans l'onglet Douane de chaque dossier (déclarant en douane et responsable transit ; quittance aussi pour le comptable).

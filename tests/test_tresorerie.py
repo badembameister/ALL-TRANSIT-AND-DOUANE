@@ -1,5 +1,6 @@
 """Facturation : devis, avances, avoirs, règlements par mode, relances, balance âgée, exports comptables."""
 import os
+import uuid
 import tempfile
 from datetime import date, timedelta
 
@@ -22,7 +23,7 @@ def c():
 
 
 def dossier(c, devise="GNF", delai=30):
-    cli = c.post("/clients", json={"nom": f"Client {devise} {delai}", "nif": "NIF-T", "devise": devise, "delai_paiement": delai}).json()
+    cli = c.post("/clients", json={"nom": f"Client {devise} {delai}", "nif": f"NIF-T-{uuid.uuid4().hex[:8]}", "devise": devise, "delai_paiement": delai}).json()
     return c.post("/dossiers", json=dict(type="Import", client_id=cli["id"], designation="Riz", code_sh="100630", colis=1,
                                          poids=1000, valeur=1000, devise="USD")).json()
 

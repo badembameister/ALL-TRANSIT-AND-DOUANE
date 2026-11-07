@@ -87,7 +87,7 @@ const body={...f,bureaux_passage:f.bureaux_passage.split(',').map(x=>x.trim()).f
 try{const n=await api(`/dossiers/${did}/transit`,{method:id?'PUT':'POST',json:body});await loadTransit();trOpen(n.id)}catch(e){fail('Déclaration non enregistrée',e)}})}
 
 /* Création rapide d'un dossier (et du client si besoin) pour y rattacher un transit */
-async function trDossier(){try{TR.CL=await api('/clients')}catch(e){TR.CL=[]}
+async function trDossier(){try{TR.CL=await api('/clients?type=Client&actifs=true')}catch(e){TR.CL=[]}
 ask('Nouveau dossier',[{n:'client_id',l:'Client',o:[['','Nouveau client…'],...TR.CL.map(c=>[String(c.id),c.nom])],v:TR.CL[0]?String(TR.CL[0].id):''},
 {n:'cnom',l:'Nouveau client : raison sociale'},{n:'cnif',l:'Nouveau client : NIF / RC'},{n:'type',l:'Type d’opération',o:TYPES,v:'Transit international'},
 {n:'designation',l:'Désignation des marchandises',r:1},{n:'code_sh',l:'Code SH',r:1},{n:'colis',l:'Nombre de colis',t:'number',v:0},{n:'poids',l:'Poids brut (kg)',t:'number',v:0},

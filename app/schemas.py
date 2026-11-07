@@ -66,17 +66,86 @@ class UserOut(ORM):
     actif: bool
 
 
+TypePartenaire = Literal["Client", "Fournisseur", "Transporteur", "Agent étranger", "Destinataire", "Administration"]
+
+
 class ClientIn(BaseModel):
-    nom: str
-    nif: str
+    nom: str = Field(min_length=2)
+    nif: str = ""
     devise: str = "GNF"
-    delai_paiement: int = 30
+    delai_paiement: int = Field(default=30, ge=0, le=365)
     contact: str = ""
+    type: TypePartenaire = "Client"
+    rc: str = ""
+    adresse: str = ""
+    ville: str = ""
+    pays: str = "Guinée"
+    telephone: str = ""
+    email: str = ""
+    banque: str = ""
+    compte_bancaire: str = ""
+    plafond_credit: Decimal = Field(default=0, ge=0)
+    notes: str = ""
+    actif: bool = True
+
+    @field_validator("email")
+    @classmethod
+    def _mail(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v and ("@" not in v or " " in v):
+            raise ValueError("Adresse e-mail invalide")
+        return v
 
 
 class ClientOut(ClientIn, ORM):
     id: int
     code: str
+    type: str = "Client"
+    pays: str = ""
+    created_at: Optional[datetime] = None
+
+    @field_validator("rc", "adresse", "ville", "pays", "telephone", "email", "banque", "compte_bancaire", "notes", "contact",
+                     "nif", mode="before")
+    @classmethod
+    def _txt(cls, v):
+        return v or ""
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _type(cls, v):
+        return v or "Client"
+
+    @field_validator("actif", mode="before")
+    @classmethod
+    def _actif(cls, v):
+        return True if v is None else v
+
+    @field_validator("plafond_credit", mode="before")
+    @classmethod
+    def _plafond(cls, v):
+        return v or 0
+
+
+class ContactIn(BaseModel):
+    nom: str = Field(min_length=2)
+    fonction: str = ""
+    telephone: str = ""
+    email: str = ""
+    principal: bool = False
+
+
+class ContactOut(ContactIn, ORM):
+    id: int
+
+
+class PieceOut(ORM):
+    id: int
+    type: str
+    nom_fichier: str
+    expiration: Optional[date]
+    expire: bool
+    depose_par: str
+    created_at: datetime
 
 
 class DossierIn(BaseModel):

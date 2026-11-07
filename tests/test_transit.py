@@ -1,5 +1,6 @@
 """Module transit : déclaration complète, bureaux de passage, contrôles de départ, rejet, apurement, échanges douane."""
 import os
+import uuid
 import tempfile
 from datetime import date, timedelta
 
@@ -20,7 +21,7 @@ def c():
 
 
 def nouveau_dossier(c, **extra):
-    cli = c.post("/clients", json={"nom": "Atlantic Mining Supplies", "nif": "NIF-TR"}).json()
+    cli = c.post("/clients", json={"nom": "Atlantic Mining Supplies", "nif": f"NIF-TR-{uuid.uuid4().hex[:8]}"}).json()
     return c.post("/dossiers", json=dict(type="Transit international", client_id=cli["id"], designation="Pièces d'engins",
                                          code_sh="843149", colis=12, poids=18500, valeur=90000, devise="EUR",
                                          fournisseur="Bergbau GmbH", transporteur="Trans-Sahel", **extra)).json()

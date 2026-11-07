@@ -32,6 +32,50 @@ class Client(Base):
     devise: Mapped[str] = mapped_column(String(3), default="GNF")
     delai_paiement: Mapped[int] = mapped_column(default=30)
     contact: Mapped[str] = mapped_column(String(200), default="")
+    # Colonnes ajoutées par la migration automatique (db.sync_columns)
+    type: Mapped[str] = mapped_column(String(30), default="Client", server_default="Client")
+    rc: Mapped[str] = mapped_column(String(60), default="", server_default="")  # registre du commerce (RCCM)
+    adresse: Mapped[str] = mapped_column(String(300), default="", server_default="")
+    ville: Mapped[str] = mapped_column(String(100), default="", server_default="")
+    pays: Mapped[str] = mapped_column(String(80), default="Guinée", server_default="Guinée")
+    telephone: Mapped[str] = mapped_column(String(40), default="", server_default="")
+    email: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    banque: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    compte_bancaire: Mapped[str] = mapped_column(String(60), default="", server_default="")
+    plafond_credit: Mapped[Decimal] = mapped_column(Money, default=0, server_default="0")  # en devise de base, 0 = sans plafond
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    actif: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    contacts: Mapped[list["Contact"]] = relationship(cascade="all, delete-orphan", order_by="Contact.id")
+    pieces: Mapped[list["PiecePartenaire"]] = relationship(cascade="all, delete-orphan", order_by="PiecePartenaire.id")
+
+
+class Contact(Base):
+    __tablename__ = "contacts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
+    nom: Mapped[str] = mapped_column(String(200))
+    fonction: Mapped[str] = mapped_column(String(120), default="")
+    telephone: Mapped[str] = mapped_column(String(40), default="")
+    email: Mapped[str] = mapped_column(String(200), default="")
+    principal: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PiecePartenaire(Base):
+    """Document d'un partenaire : agrément, carte de commerçant, attestation, contrat…"""
+    __tablename__ = "pieces_partenaires"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
+    type: Mapped[str] = mapped_column(String(40))
+    nom_fichier: Mapped[str] = mapped_column(String(255))
+    contenu: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    expiration: Mapped[Optional[date]] = mapped_column(Date)
+    depose_par: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    @property
+    def expire(self) -> bool:
+        return bool(self.expiration and self.expiration < date.today())
 
 
 class Dossier(Base):

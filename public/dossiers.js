@@ -14,7 +14,7 @@ const dsUrl=p=>`/dossiers/${DS.sel}${p||''}`;
 function vDossiersApi(){return`<div id="dsv"><h1>Dossiers</h1><p class="mut">Chargement…</p></div>`}
 
 async function loadDossiers(){try{const p=new URLSearchParams();if(DS.q)p.set('q',DS.q);if(DS.st)p.set('statut',DS.st);if(DS.ty)p.set('type',DS.ty);
-[DS.L,DS.CL,DS.P]=await Promise.all([api('/dossiers?'+p),isStaff()?api('/clients').catch(()=>[]):[],isStaff()?api('/params').catch(()=>null):null])}
+[DS.L,DS.CL,DS.P]=await Promise.all([api('/dossiers?'+p),isStaff()?api('/clients?type=Client&actifs=true').catch(()=>[]):[],isStaff()?api('/params').catch(()=>null):null])}
 catch(e){$('#dsv').innerHTML=`<h1>Dossiers</h1><p class="note">${esc(e.message)}</p>`;return}
 if(DS.sel)return dsLoad();paintDossiers()}
 
@@ -36,7 +36,7 @@ ${W.dossier.includes(role)?'<button class="pri" onclick="dsForm()">Nouveau dossi
 /* ---------- Création / modification ---------- */
 function dsForm(id){const d=id?DS.d:{type:'Import',regime:(DS.P?.reg||[])[0],devise:'USD',incoterm:'',colis:0,poids:0,valeur:0,fret:0,assurance:0},v=x=>x==null?'':x;
 ask(id?`Modifier ${d.num}`:'Nouveau dossier',[{n:'type',l:'Type d’opération',o:TYPES,v:d.type},{n:'regime',l:'Régime douanier',o:DS.P?.reg||['Mise à la consommation'],v:d.regime},
-{n:'client_id',l:'Client',o:[...(id?[]:[['','Nouveau client…']]),...DS.CL.map(c=>[String(c.id),c.nom])],v:id?String(d.client_id):(DS.CL[0]?String(DS.CL[0].id):'')},
+{n:'client_id',l:'Client',o:[...(id?[]:[['','Nouveau client…']]),...(id&&!DS.CL.some(c=>c.id===d.client_id)?[[String(d.client_id),d.client_nom]]:[]),...DS.CL.map(c=>[String(c.id),c.nom])],v:id?String(d.client_id):(DS.CL[0]?String(DS.CL[0].id):'')},
 ...(id?[]:[{n:'cnom',l:'Nouveau client : raison sociale'},{n:'cnif',l:'Nouveau client : NIF / RC'}]),
 {n:'ref',l:'Référence client',v:v(d.ref)},{n:'incoterm',l:'Incoterm',o:INCOTERMS.map(x=>[x,x||'—']),v:d.incoterm||''},
 {n:'fournisseur',l:'Fournisseur / expéditeur',v:v(d.fournisseur)},{n:'destinataire',l:'Destinataire',v:v(d.destinataire)},
