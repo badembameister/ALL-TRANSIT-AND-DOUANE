@@ -102,6 +102,9 @@ Menu « Opérations », ouvert à l'administrateur, au responsable transit, à l
 
 Les nouvelles tables sont créées automatiquement au premier appel ; aucune table existante n'est modifiée.
 
+## Habillage visuel
+`public/scene.js` dessine une illustration originale en SVG (port au crépuscule : porte-conteneurs, grues, avion, camion), sans image externe. Elle sert de fond animé à la page de connexion, de bandeau d'accueil au tableau de bord et de fond discret, immobile, en bas des écrans. Les écrans apparaissent en fondu, les indicateurs du tableau de bord défilent jusqu'à leur valeur. Toutes les animations s'arrêtent si l'appareil demande de réduire les animations (réglage d'accessibilité du système).
+
 ## Développement local
     python -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt
     uvicorn app.main:app --reload     # SQLite par défaut, documentation sur /docs

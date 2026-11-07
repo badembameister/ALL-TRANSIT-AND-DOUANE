@@ -16,7 +16,9 @@ const tile=(v,l,warn,sub)=>`<div class="${warn?'w':''}"><b>${v}</b><span>${l}</s
 const dash=v=>v==null?'—':v;
 function paintDash(){if(view!=='dashboard'||sel||!$('#tbv'))return;const R=TB.R,A=R.activite,D=R.douane,T=R.transit,O=R.operations,F=R.finance,b=R.devise_base,S=A.par_statut;
 const P=[['mois','Ce mois'],['3m','3 derniers mois'],['12m','12 derniers mois'],['an','Cette année'],['perso','Période…']];
-$('#tbv').innerHTML=`<h1>Tableau de bord</h1><div class="bar">${P.map(([k,l])=>`<button class="${k===TB.per?'pri':'ghost'} sm" onclick="TB.per='${k}';${k==='perso'?'paintDash()':'loadDash()'}">${l}</button>`).join('')}
+const urg=R.alertes.filter(a=>a.niveau==='ba').length,h=new Date().getHours(),salut=h<5||h>=18?'Bonsoir':'Bonjour';TB.svg=TB.svg||sceneSVG('band');
+$('#tbv').innerHTML=`<div class="hero"><div class="scene">${TB.svg}</div><div class="hero-tx"><small>${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</small>
+<h1>${salut}${ME?', '+esc(ME.nom.split(' ')[0]):''}</h1><p><b>${S['Ouvert']+S['En cours']}</b> dossier(s) en cours · <b>${T.en_cours}</b> transit(s) en route · <b>${O.conteneurs_au_port}</b> conteneur(s) au port${urg?` · <b>${urg}</b> alerte(s) urgente(s)`:''}</p></div></div><div class="bar">${P.map(([k,l])=>`<button class="${k===TB.per?'pri':'ghost'} sm" onclick="TB.per='${k}';${k==='perso'?'paintDash()':'loadDash()'}">${l}</button>`).join('')}
 ${TB.per==='perso'?`<label class="mut">Du <input type="date" value="${TB.du}" onchange="TB.du=this.value;loadDash()"></label><label class="mut">au <input type="date" value="${TB.au}" onchange="TB.au=this.value;loadDash()"></label>`:''}
 <span class="mut">Période : ${dfr(R.periode.du)} – ${dfr(R.periode.au)}</span></div>
 <h3 class="sec">Activité</h3><div class="kp">${tile(S['Ouvert']+S['En cours'],'Dossiers ouverts')}${tile(S['Bloqué'],'Dossiers bloqués',S['Bloqué'])}${tile(S['Livré'],'Livrés')}${tile(S['Clôturé'],'Clôturés')}
@@ -32,7 +34,11 @@ ${tile(compact(F.creances),'Créances clients')}${tile(compact(F.montant_retard)
 <div class="duo"><div class="card tbl"><h3>Rentabilité par client</h3>${tbRent(R.rentabilite.par_client)}</div><div class="card tbl"><h3>Rentabilité par transporteur</h3>${tbRent(R.rentabilite.par_transporteur)}</div></div>
 <div class="duo"><div class="card tbl"><h3>Dossiers les plus rentables</h3>${tbDos(R.rentabilite.meilleurs)}</div><div class="card tbl"><h3>Dossiers à marge faible (moins de 10 %)</h3>${tbDos(R.rentabilite.moins_bons)}</div></div>
 ${F.par_agent.length?`<div class="card"><h3>Chiffre d’affaires par personne ayant émis les factures</h3>${tbBars(F.par_agent)}</div>`:''}
-<div class="card" id="tbal">${tbAlertes()}</div>`;tbHover()}
+<div class="card" id="tbal">${tbAlertes()}</div>`;tbHover();tbCompte()}
+/* Les chiffres des indicateurs défilent jusqu'à leur valeur (sauf si l'utilisateur limite les animations) */
+function tbCompte(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;document.querySelectorAll('#tbv .kp b').forEach(el=>{const m=el.textContent.match(/^([\d\s\u202f\u00a0]+(?:,\d+)?)(.*)$/);if(!m)return;
+const cible=parseFloat(m[1].replace(/[\s\u202f\u00a0]/g,'').replace(',','.')),dec=(m[1].split(',')[1]||'').length,suf=m[2],t0=performance.now();if(!cible)return;
+const pas=t=>{const k=Math.min(1,(t-t0)/700),v=cible*(1-Math.pow(1-k,3));el.textContent=v.toLocaleString('fr-FR',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;if(k<1)requestAnimationFrame(pas)};requestAnimationFrame(pas)})}
 
 /* Colonnes : une seule série, une seule couleur, info-bulle au survol, étiquette sur le maximum et le dernier mois */
 function tbColumns(L){const W=760,H=240,pl=56,pr=10,pt=22,pb=28,max=Math.max(...L.map(x=>x.ca),0);
