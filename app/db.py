@@ -32,25 +32,44 @@ def get_db():
         db.close()
 
 
+class MigrationError(RuntimeError):
+    """Une colonne attendue par le code n'a pas pu être ajoutée à la base."""
+
+
+def _colonnes_manquantes() -> dict[str, list]:
+    insp = inspect(engine)  # nouvel inspecteur : pas de cache des colonnes
+    manquantes: dict[str, list] = {}
+    for table in Base.metadata.sorted_tables:
+        if insp.has_table(table.name):
+            existantes = {c["name"] for c in insp.get_columns(table.name)}
+            cols = [col for col in table.columns if col.name not in existantes]
+            if cols:
+                manquantes[table.name] = cols
+    return manquantes
+
+
 def sync_columns() -> list[str]:
     """Ajoute aux tables existantes les colonnes déclarées dans les modèles mais absentes de la base.
-    Migration minimale et idempotente (pas d'Alembic pour l'instant) : uniquement des ajouts, jamais de suppression."""
-    ajouts = []
-    insp = inspect(engine)
-    for table in Base.metadata.sorted_tables:
-        if not insp.has_table(table.name):
-            continue
-        existantes = {c["name"] for c in insp.get_columns(table.name)}
-        for col in table.columns:
-            if col.name in existantes:
-                continue
-            ddl = f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col.type.compile(engine.dialect)}"
+    Migration minimale et idempotente (pas d'Alembic pour l'instant) : uniquement des ajouts, jamais de suppression.
+    Après coup, vérifie que toutes les colonnes existent ; sinon lève MigrationError (l'API refuse alors de servir)."""
+    ajouts, erreurs = [], {}
+    pg = engine.dialect.name == "postgresql"
+    for table, cols in _colonnes_manquantes().items():
+        for col in cols:
+            ddl = (f"ALTER TABLE {table} ADD COLUMN {'IF NOT EXISTS ' if pg else ''}{col.name} "
+                   f"{col.type.compile(engine.dialect)}")
             if col.server_default is not None:
                 ddl += f" DEFAULT '{col.server_default.arg}'"
             try:
                 with engine.begin() as cx:
                     cx.execute(text(ddl))
-                ajouts.append(f"{table.name}.{col.name}")
-            except DBAPIError:  # démarrage à froid concurrent : la colonne vient d'être ajoutée ailleurs
-                pass
+                ajouts.append(f"{table}.{col.name}")
+            except DBAPIError as e:  # peut venir d'un démarrage concurrent : on tranche à la vérification
+                erreurs[f"{table}.{col.name}"] = str(e.orig).strip().splitlines()[0] if e.orig else str(e)
+    if ajouts:
+        print(f"[migration] colonnes ajoutées : {', '.join(ajouts)}", flush=True)
+    restantes = [f"{t}.{c.name}" for t, cols in _colonnes_manquantes().items() for c in cols]
+    if restantes:
+        detail = "; ".join(f"{k} ({erreurs[k]})" if k in erreurs else k for k in restantes)
+        raise MigrationError(f"Migration incomplète, colonnes absentes de la base : {detail}")
     return ajouts

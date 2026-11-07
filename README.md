@@ -71,6 +71,9 @@ Menu « Transit », branché sur l'API (lecture pour tout le personnel, écritur
 - **Alertes** : délai de route dépassé, scellé cassé. **Historique** des échanges avec la douane (envois, réceptions, notes internes) et des incidents.
 - La table `transits` existante reçoit ses nouvelles colonnes automatiquement au démarrage (`app/db.py`, `sync_columns`) ; les déclarations déjà enregistrées restent lisibles.
 
+## Migration automatique de la base
+Au démarrage, `sync_columns` (`app/db.py`) ajoute aux tables existantes les colonnes déclarées dans le code et absentes de la base (ajouts uniquement, jamais de suppression ; `ADD COLUMN IF NOT EXISTS` sous PostgreSQL). Les colonnes ajoutées sont écrites dans les logs (`[migration] colonnes ajoutées : …`). Ensuite, la base est relue : si une colonne manque encore, l'API refuse de servir (erreur 500, y compris sur `/api/health`) et les logs Vercel affichent `Migration incomplète, colonnes absentes de la base : …` avec la cause. Une panne de migration se voit donc immédiatement au lieu de faire planter un écran plus tard.
+
 ## Module Opérations (transport et suivi opérationnel)
 Menu « Opérations », ouvert à l'administrateur, au responsable transit, à l'agent opérationnel (lecture et écriture) et à la direction (lecture). Entièrement branché sur l'API.
 - **Planning des missions** : enlèvement, livraison, transfert, retour vide. Affectation d'un véhicule et d'un chauffeur, refus des doubles affectations le même jour, démarrage, incidents, annulation motivée, dernière position GPS (géolocalisation du téléphone ou saisie manuelle ; `POST /api/missions/{id}/position` est prêt pour un boîtier GPS).
