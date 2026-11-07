@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from .customs import DEFAULT_PARAMS
 from .db import Base, SessionLocal, engine, sync_columns
 from .models import Param, User
-from .routes import admin, auth, clients, dossiers, douane, finance, operations, pilotage, transit
+from .routes import admin, auth, clients, dossiers, douane, finance, operations, pilotage, portail, transit
 from .security import hash_pwd
 
 _ready = False
@@ -57,7 +57,7 @@ async def prete(request, call_next):  # sur Vercel, le lifespan d'une applicatio
     return await call_next(request)
 
 
-for r in (auth, clients, dossiers, transit, douane, finance, operations, admin, pilotage):
+for r in (auth, clients, dossiers, transit, douane, finance, operations, admin, pilotage, portail):
     app.include_router(r.router)
 
 

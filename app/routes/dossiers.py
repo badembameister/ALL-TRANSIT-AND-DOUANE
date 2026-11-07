@@ -173,16 +173,31 @@ def journal(d: Dossier = Depends(dossier_for), u: User = Depends(require(*STAFF)
             for a in rows]
 
 
+DOCS_CLIENT = {"facture", "packing", "bl", "cmr", "origine", "autre"}  # pièces qu'un client peut fournir lui-même
+
+
+def _vue_client(doc: Document, u: User) -> DocumentOut:
+    """Pour un client, on ne montre pas l'adresse des employés qui ont déposé les pièces."""
+    out = DocumentOut.model_validate(doc)
+    if u.role == "Client":
+        out.depose_par = "Vous" if doc.depose_par == u.email else "Alliance Transit"
+    return out
+
+
 @router.get("/dossiers/{did}/documents", response_model=list[DocumentOut])
-def documents(d: Dossier = Depends(dossier_for)):
-    return d.documents
+def documents(d: Dossier = Depends(dossier_for), u: User = Depends(current_user)):
+    return [_vue_client(x, u) for x in d.documents]
 
 
 @router.post("/dossiers/{did}/documents", response_model=DocumentOut, status_code=201)
 async def televerser(type: str = Form(...), fichier: UploadFile = File(...), d: Dossier = Depends(dossier_for),
-                     u: User = Depends(require(*W_DOCS)), db: Session = Depends(get_db)):
+                     u: User = Depends(require(*W_DOCS, "Client")), db: Session = Depends(get_db)):
     if type not in DOC_TYPES:
         raise HTTPException(422, f"Type de document inconnu. Valeurs : {', '.join(DOC_TYPES)}")
+    if u.role == "Client" and type not in DOCS_CLIENT:
+        raise HTTPException(403, "Ce type de document est établi par Alliance Transit")
+    if u.role == "Client" and d.statut in {"Livré", "Clôturé"}:
+        raise HTTPException(409, "Dossier terminé : contactez Alliance Transit pour ajouter un document")
     ext = Path(fichier.filename or "").suffix.lower()
     if ext not in EXT:
         raise HTTPException(415, f"Format refusé. Formats acceptés : {', '.join(sorted(EXT))}")
@@ -193,9 +208,9 @@ async def televerser(type: str = Form(...), fichier: UploadFile = File(...), d: 
     doc = Document(dossier_id=d.id, type=type, version=version, nom_fichier=fichier.filename, contenu=content,
                    depose_par=u.email)
     db.add(doc)
-    audit(db, u, "document", d.id, "dépôt", f"{type} v{version}")
+    audit(db, u, "document", d.id, "dépôt", f"{type} v{version}" + (" (par le client)" if u.role == "Client" else ""))
     db.commit()
-    return doc
+    return _vue_client(doc, u)
 
 
 @router.get("/documents/{doc_id}/download")

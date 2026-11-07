@@ -17,7 +17,7 @@ from ..deps import get_params
 from ..gateway import SimulatedGateway, gateway
 from ..models import Audit, Dossier, Facture, Param, User
 from ..schemas import ParamsIn, ShImportIn, ShIn, SocieteIn
-from ..security import STAFF, require
+from ..security import STAFF, current_user, require
 
 router = APIRouter(tags=["Paramétrage et pilotage"])
 
@@ -116,7 +116,8 @@ def importer_sh(body: ShImportIn, u: User = Depends(require()), db: Session = De
 
 
 @router.get("/societe")
-def lire_societe(_: User = Depends(require(*STAFF)), db: Session = Depends(get_db)):
+def lire_societe(_: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Coordonnées de la société (en-tête des documents), lisibles par tout utilisateur connecté, clients compris."""
     return get_societe(db)
 
 

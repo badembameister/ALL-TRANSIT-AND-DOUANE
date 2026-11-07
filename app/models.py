@@ -21,6 +21,7 @@ class User(Base):
     pwd: Mapped[str] = mapped_column(String(200))
     client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id"))
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    notifs_vues_le: Mapped[Optional[datetime]] = mapped_column(DateTime)  # portail client : dernière lecture des notifications
 
 
 class Client(Base):

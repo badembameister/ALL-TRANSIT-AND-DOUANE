@@ -22,7 +22,7 @@ function paintDossiers(){if(view!=='dossiers'||sel||!$('#dsv'))return;$('#dsv').
 
 /* ---------- Liste ---------- */
 function dsList(){const rows=DS.L.map(d=>`<tr><td><button class="lk" onclick="dsOpen(${d.id})">${esc(d.num)}</button><br><span class="mut">${esc(d.ref||'')}</span></td>
-<td>${esc(d.type)}</td><td>${esc(d.client_nom)}</td><td>${esc(d.designation)}<br><span class="mut mono">SH ${esc(d.code_sh)}</span></td>
+<td>${esc(d.type)}</td>${isStaff()?`<td>${esc(d.client_nom)}</td>`:''}<td>${esc(d.designation)}<br><span class="mut mono">SH ${esc(d.code_sh)}</span></td>
 <td><span class="b ${d.completude===100?'ok':'wa'}">${d.completude} %</span></td><td>${dsBadge(d.declaration_statut)}</td><td>${dsBadge(d.transit_statut)}</td>
 ${isStaff()?`<td>${dsBadge(d.facture_statut)}</td>`:''}<td>${badge(d.statut)}</td><td>${dfr(d.created_at)}</td></tr>`).join('')
 ||`<tr><td colspan="10" class="mut">${DS.q||DS.st||DS.ty?'Aucun dossier pour ces critères.':'Aucun dossier enregistré.'}</td></tr>`;
@@ -31,7 +31,7 @@ return`<h1>Dossiers</h1><div class="bar"><input id="dsq" placeholder="N°, clien
 <select onchange="DS.st=this.value;loadDossiers()"><option value="">Tous les statuts</option>${DSTAT.map(s=>`<option ${s===DS.st?'selected':''}>${s}</option>`).join('')}</select>
 <select onchange="DS.ty=this.value;loadDossiers()"><option value="">Tous les types</option>${TYPES.map(s=>`<option ${s===DS.ty?'selected':''}>${s}</option>`).join('')}</select>
 ${W.dossier.includes(role)?'<button class="pri" onclick="dsForm()">Nouveau dossier</button>':''}</div>
-<div class="card tbl"><table><tr><th>Dossier</th><th>Type</th><th>Client</th><th>Marchandises</th><th>Documents</th><th>Douane</th><th>Transit</th>${isStaff()?'<th>Facture</th>':''}<th>Statut</th><th>Ouvert le</th></tr>${rows}</table></div>`}
+<div class="card tbl"><table><tr><th>Dossier</th><th>Type</th>${isStaff()?'<th>Client</th>':''}<th>Marchandises</th><th>Documents</th><th>Douane</th><th>Transit</th>${isStaff()?'<th>Facture</th>':''}<th>Statut</th><th>Ouvert le</th></tr>${rows}</table></div>`}
 
 /* ---------- Création / modification ---------- */
 function dsForm(id){const d=id?DS.d:{type:'Import',regime:(DS.P?.reg||[])[0],devise:'USD',incoterm:'',colis:0,poids:0,valeur:0,fret:0,assurance:0},v=x=>x==null?'':x;
@@ -76,18 +76,19 @@ ${g('Transporteur',esc(d.transporteur))}${g('Agent en douane',esc(d.agent_douani
 ${g('Marchandises',esc(d.designation))}${g('Code SH',`<span class="mono">${esc(d.code_sh)}</span>`)}${g('Colis / poids',`${nf(d.colis)} colis, ${nf(d.poids)} kg`)}
 ${g('Valeur',`${(+d.valeur).toLocaleString('fr-FR')} ${esc(d.devise)}`)}${g('Fret + assurance',`${nf(+d.fret + +d.assurance)} ${base()}`)}${g('Ouvert le',dfr(d.created_at))}</div></div>
 <div class="card tbl"><h3>Étapes opérationnelles</h3><table><tr><th>Étape</th><th>Prévue</th><th>Réelle</th><th>Écart</th><th></th></tr>${DS.jal.map(j=>`<tr><td>${esc(j.libelle)}</td><td>${dfr(j.prevue)}</td>
-<td>${j.reelle?dfr(j.reelle)+(j.automatique?' <span class="mut" title="Date issue des événements enregistrés">auto</span>':''):'—'}</td>
+<td>${j.reelle?dfr(j.reelle)+(j.automatique&&isStaff()?' <span class="mut" title="Date issue des événements enregistrés">auto</span>':''):'—'}</td>
 <td>${j.ecart_jours!=null?`<span class="b ${j.ecart_jours>0?'ba':'ok'}">${j.ecart_jours>0?'+':''}${j.ecart_jours} j</span>`:j.retard?'<span class="b ba">En retard</span>':''}</td>
 <td>${canJ?`<button class="ghost sm" onclick="dsJalon('${j.cle}')">Dates</button>`:''}</td></tr>`).join('')}</table>
-<p class="mut">Les dates réelles marquées « auto » viennent des événements enregistrés (conteneurs, douane, transit, missions, facture) et priment sur la saisie.</p></div>`}
+${isStaff()?'<p class="mut">Les dates réelles marquées « auto » viennent des événements enregistrés (conteneurs, douane, transit, missions, facture) et priment sur la saisie.</p>':''}</div>`}
 
 const dsJalon=k=>{const j=DS.jal.find(x=>x.cle===k);ask(j.libelle,[{n:'prevue',l:'Date prévue',t:'date',v:j.prevue||''},...(j.automatique?[]:[{n:'reelle',l:'Date réelle',t:'date',v:j.reelle||''}])],async f=>{
 try{DS.jal=await api(dsUrl('/jalons/'+k),{method:'PUT',json:{prevue:f.prevue||null,reelle:f.reelle||null}});paintDossiers()}catch(e){fail('Étape non enregistrée',e)}})};
 
 /* Documents */
-async function dsDocs(){const d=DS.d,req=reqDocs(d.type),have=new Set(DS.docs.map(x=>x.type)),w=W.docs.includes(role);
+const DOCS_CLIENT=['facture','packing','bl','cmr','origine','autre'];
+async function dsDocs(){const d=DS.d,req=reqDocs(d.type),have=new Set(DS.docs.map(x=>x.type)),w=W.docs.includes(role)&&!(isCli()&&['Livré','Clôturé'].includes(d.statut)),types=Object.entries(DOC_LIB).filter(([k])=>!isCli()||DOCS_CLIENT.includes(k));
 dsPaint(`<div class="card"><h3>Pièces obligatoires (${d.completude} %)</h3>${req.map(k=>`<div class="al">${have.has(k)?badge('Conforme'):'<span class="b ba">Manquant</span>'} ${DOC_LIB[k]}</div>`).join('')}</div>
-${w?`<div class="card"><h3>Déposer un document</h3><form id="dsup" class="bar" onsubmit="return dsUpload(event)"><select name="type">${Object.entries(DOC_LIB).map(([k,l])=>`<option value="${k}" ${req.includes(k)&&!have.has(k)?'selected':''}>${l}</option>`).join('')}</select>
+${w?`<div class="card"><h3>${isCli()?'Nous transmettre un document':'Déposer un document'}</h3><form id="dsup" class="bar" onsubmit="return dsUpload(event)"><select name="type">${types.map(([k,l])=>`<option value="${k}" ${req.includes(k)&&!have.has(k)?'selected':''}>${l}</option>`).join('')}</select>
 <input type="file" name="fichier" required accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx"><button class="pri">Téléverser</button></form><p class="mut">PDF, images, Excel ou Word, 4 Mo maximum. Un nouveau dépôt du même type crée une nouvelle version.</p></div>`:''}
 <div class="card tbl"><table><tr><th>Type</th><th>Version</th><th>Fichier</th><th>Déposé par</th><th>Date</th><th></th></tr>${[...DS.docs].reverse().map(x=>`<tr><td>${esc(DOC_LIB[x.type]||x.type)}</td><td>v${x.version}</td><td>${esc(x.nom_fichier)}</td><td>${esc(x.depose_par)}</td><td>${hfr(x.created_at)}</td>
 <td><button class="ghost sm" onclick="dsDownload(${x.id},'${esc(x.nom_fichier).replace(/'/g,"\\'")}')">Télécharger</button></td></tr>`).join('')||'<tr><td colspan="6" class="mut">Aucun document.</td></tr>'}</table></div>`)}
@@ -110,12 +111,12 @@ const g=(l,v)=>`<div><span>${l}</span>${v||'—'}</div>`,info2=`<div class="g" s
 ${g('Liquidation figée',x.montant_liquide!=null?mt(x.montant_liquide):'')}${g('Quittance',x.quittance_ref?`${esc(x.quittance_ref)} · ${mt(x.quittance_montant)} · ${dfr(x.quittance_date)}`:'')}
 ${g('Bon à enlever',x.bae_le?`${hfr(x.bae_le)} (en ${jours(x.delai_jours)})`:x.attente_jours!=null?`en attente depuis ${x.attente_jours} j`:'')}</div>`;
 dsPaint(`<div class="card"><h3>Déclaration ${esc(x.ref)} ${badge(s)}</h3>${info2}${A.length?`<div class="bar">${A.join('')}</div>`:''}
-${s!=='Brouillon'&&x.montant_liquide!=null&&Math.round(x.montant_liquide)!==Math.round(L.total)?`<p class="note">Liquidation figée à la transmission : ${mt(x.montant_liquide)} (le calcul actuel donne ${mt(L.total)}, paramètres modifiés depuis).</p>`:''}
+${isStaff()&&s!=='Brouillon'&&x.montant_liquide!=null&&Math.round(x.montant_liquide)!==Math.round(L.total)?`<p class="note">Liquidation figée à la transmission : ${mt(x.montant_liquide)} (le calcul actuel donne ${mt(L.total)}, paramètres modifiés depuis).</p>`:''}
 <div class="tbl"><table><tr><th>Élément</th><th>Taux</th><th>Montant</th></tr><tr><td>Valeur CIF (valeur + fret + assurance)</td><td></td><td>${mt(L.valeur_cif)}</td></tr>
 <tr><td>Droit de douane${L.code_sh_connu?'':' <span class="mut">(taux par défaut, code SH non paramétré)</span>'}</td><td>${pct(L.droit_douane.taux)}</td><td>${mt(L.droit_douane.montant)}</td></tr>
-${L.autres_taxes.map(t=>`<tr><td>${esc(t.nom)}</td><td>${pct(t.taux)}</td><td>${mt(t.montant)}</td></tr>`).join('')}${+L.accise.montant?`<tr><td>Accise</td><td>${pct(L.accise.taux)}</td><td>${mt(L.accise.montant)}</td></tr>`:''}
+${L.autres_taxes.map(t=>`<tr><td>${esc(isCli()?t.nom.replace(/\s*\(à valider\)/i,''):t.nom)}</td><td>${pct(t.taux)}</td><td>${mt(t.montant)}</td></tr>`).join('')}${+L.accise.montant?`<tr><td>Accise</td><td>${pct(L.accise.taux)}</td><td>${mt(L.accise.montant)}</td></tr>`:''}
 <tr><td>TVA</td><td>${pct(L.tva.taux)}</td><td>${mt(L.tva.montant)}</td></tr><tr><th>Total droits et taxes</th><th></th><th>${mt(L.total)}</th></tr></table></div></div>
-<div class="card"><h3>Contrôles de cohérence</h3>${k.controles.map(c=>`<div class="al">${c.conforme?badge('Conforme'):'<span class="b ba">Bloquant</span>'} ${esc(c.controle)}</div>`).join('')}</div>
+${isCli()?'':`<div class="card"><h3>Contrôles de cohérence</h3>${k.controles.map(c=>`<div class="al">${c.conforme?badge('Conforme'):'<span class="b ba">Bloquant</span>'} ${esc(c.controle)}</div>`).join('')}</div>`}
 <div class="card"><h3>Messages douaniers</h3>${[...x.messages].reverse().map(m=>`<div class="al"><span class="b ${{envoi:'in','réception':'ok',interne:''}[m.sens]||''}">${esc(m.sens)}</span> <span class="mut">${hfr(m.created_at)}</span> ${esc(m.texte)}</div>`).join('')||'<p class="mut">Aucun message.</p>'}</div>`)}
 async function dsDecl(p){try{await api(dsUrl('/declaration'+p),{method:'POST'});await dsRefresh()}catch(e){fail('Action impossible',e)}}
 const dsRep=s=>ask(`Réponse de la douane : ${s}`,[...(s==='Acceptée'?[{n:'ref_douane',l:'Référence d’enregistrement douanier'}]:[]),{n:'texte',l:s==='Rejetée'?'Motif du rejet':'Texte du message (facultatif)',r:s==='Rejetée'}],

@@ -34,6 +34,13 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 ## Interface
 `public/index.html` exige une connexion à l'API (comptes et rôles réels). Tous les écrans sont branchés sur l'API ; chaque module a son fichier dans `public/` (`dashboard.js`, `dossiers.js`, `transit.js`, `douane.js`, `ops.js`, `factures.js`, `clients.js`, `admin.js`).
 
+## Portail client
+Un compte de rôle « Client » est toujours rattaché à un client et ne voit que ses données. Menus :
+- **Accueil** : dossiers en cours avec barre d'avancement, prochaine étape et date prévue, pièces à transmettre ; transports prévus ou en cours ; factures à régler ; **notifications** (ouverture de dossier, pièces reçues, transmission et réponses de la douane, quittance, bon à enlever, départ et passages en transit, transport, livraison, factures, règlements, relances), traduites en langage client, avec badge des non lues et « Tout marquer comme lu ».
+- **Dossiers** : la fiche du dossier sans les informations internes (coûts, marges, journal, contrôles de douane, adresses des employés, mentions « à valider »). Le client peut **déposer lui-même** facture commerciale, packing list, connaissement, CMR, certificat d'origine ou autre pièce, tant que le dossier n'est pas terminé.
+- **Mes factures** : liste, détail (règlements, avoirs, reste à payer) et impression en PDF.
+API : `GET /api/portail/accueil`, `/api/portail/notifications`, `POST /api/portail/notifications/vues`, `GET /api/portail/factures[/{id}]`.
+
 ## Tableau de bord
 Menu « Tableau de bord » (administrateur, responsable transit, commercial, comptable, direction), calculé par `GET /api/pilotage?du=&au=` sur la période choisie (ce mois, 3 mois, 12 mois, année, ou dates libres). Indicateurs du point 13 du cahier des charges :
 - **Activité** : dossiers par statut, ouverts sur la période, part des dossiers actifs complets, pièces manquantes.
