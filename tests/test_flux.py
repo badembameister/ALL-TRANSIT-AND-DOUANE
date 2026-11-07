@@ -51,8 +51,12 @@ def test_flux_complet(c):
     assert c.post(f"/dossiers/{did}/documents", data={"type": "facture"}, files={"fichier": ("x.exe", b"MZ")}).status_code == 415
     assert c.post(f"/dossiers/{did}/declaration/transmettre").json()["statut"] == "Transmise"
     assert c.post(f"/dossiers/{did}/declaration/messages", json={"statut": "Bon à enlever"}).status_code == 409
-    for s in ("Acceptée", "Bon à enlever"):
-        assert c.post(f"/dossiers/{did}/declaration/messages", json={"statut": s}).json()["statut"] == s
+    assert c.post(f"/dossiers/{did}/declaration/messages", json={"statut": "Acceptée"}).json()["statut"] == "Acceptée"
+    r = c.post(f"/dossiers/{did}/declaration/messages", json={"statut": "Bon à enlever"})
+    assert r.status_code == 422 and "quittance" in r.json()["detail"]
+    q = c.post(f"/dossiers/{did}/declaration/quittance", json={"ref": "Q-2026-001", "montant": liq["total"]})
+    assert q.status_code == 200 and q.json()["quittance_ref"] == "Q-2026-001"
+    assert c.post(f"/dossiers/{did}/declaration/messages", json={"statut": "Bon à enlever"}).json()["statut"] == "Bon à enlever"
 
     # Transit : machine à états
     assert c.post(f"/dossiers/{did}/transit", json={"bureau_depart": "Port de Conakry", "bureau_destination": "Frontière", "delai_jours": 7, "vehicule": "RC 1", "scelle": "S-1", "garantie": "Caution"}).status_code == 201

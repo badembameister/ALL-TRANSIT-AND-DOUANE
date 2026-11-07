@@ -259,11 +259,38 @@ class DeclOut(ORM):
     ref: str
     statut: str
     messages: list[MessageOut]
+    dossier_num: str = ""
+    client_nom: str = ""
+    type_operation: str = ""
+    regime: str = ""
+    created_at: Optional[datetime] = None
+    transmise_le: Optional[datetime] = None
+    reponse_le: Optional[datetime] = None
+    bae_le: Optional[datetime] = None
+    ref_douane: str = ""
+    montant_liquide: Optional[float] = None
+    quittance_ref: str = ""
+    quittance_montant: Optional[float] = None
+    quittance_date: Optional[date] = None
+    delai_jours: Optional[float] = None
+    attente_jours: Optional[int] = None
+
+    @field_validator("ref_douane", "quittance_ref", mode="before")
+    @classmethod
+    def _txt(cls, v):
+        return v or ""
+
+
+class QuittanceIn(BaseModel):
+    ref: str = Field(min_length=3, description="Numéro de quittance délivré par le Trésor / la douane")
+    montant: Decimal = Field(gt=0, description="Montant payé, en devise de base")
+    date: Optional[_dt.date] = None
 
 
 class MessageIn(BaseModel):
     statut: Literal["Acceptée", "Contrôle", "Rejetée", "Bon à enlever"]
     texte: str = ""
+    ref_douane: str = ""
 
 
 class LigneIn(BaseModel):

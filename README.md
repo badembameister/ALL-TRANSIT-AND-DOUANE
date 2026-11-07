@@ -32,7 +32,14 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 - Souveraineté des données : choisissez la région de la base selon vos exigences (point 17 du cahier des charges).
 
 ## Interface
-`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Opérations, Facturation et Utilisateurs sont branchés sur l'API. Le tableau de bord, la liste Douane, Clients et Administration utilisent encore des données de démonstration stockées dans le navigateur.
+`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Douane, Opérations, Facturation et Utilisateurs sont branchés sur l'API. Le tableau de bord, Clients et Administration utilisent encore des données de démonstration stockées dans le navigateur.
+
+## Module Douane
+Menu « Douane » (personnel), traitement dans l'onglet Douane de chaque dossier (déclarant en douane et responsable transit ; quittance aussi pour le comptable).
+- **Liste des déclarations** avec recherche (référence de déclaration ou douanière, dossier, client, quittance) et filtres par statut, dont « en attente de réponse ».
+- **Indicateurs** : brouillons, transmises sans réponse, quittances à payer, contrôles, bons à enlever sur 30 jours, délai moyen de dédouanement (transmission → bon à enlever, sur 90 jours), attentes de plus de 3 jours, rejets.
+- **Cycle** : projet généré depuis le dossier, contrôles de cohérence, transmission (liquidation figée à ce moment), acceptation avec référence douanière, contrôle, rejet motivé puis réouverture, bon à enlever.
+- **Quittance** des droits et taxes (numéro, montant, date) : obligatoire avant le bon à enlever quand des droits sont dus ; elle est archivée sur la déclaration et inscrite automatiquement dans les coûts du dossier (catégorie « Droits et taxes »), avec signalement d'un écart avec la liquidation.
 
 ## Module Facturation
 Menu « Facturation » (comptable, direction, commercial ; écriture des factures pour le comptable, des devis aussi pour le commercial et le responsable transit), et onglet « Facturation et marge » de chaque dossier.

@@ -154,8 +154,48 @@ class Declaration(Base):
     dossier_id: Mapped[int] = mapped_column(ForeignKey("dossiers.id"), unique=True)
     ref: Mapped[str] = mapped_column(String(40))
     statut: Mapped[str] = mapped_column(String(20), default="Brouillon")
+    # Colonnes ajoutées par la migration automatique (db.sync_columns)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    transmise_le: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    reponse_le: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    bae_le: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    ref_douane: Mapped[str] = mapped_column(String(60), default="", server_default="")  # référence d'enregistrement
+    montant_liquide: Mapped[Optional[Decimal]] = mapped_column(Money)  # figé à la transmission
+    quittance_ref: Mapped[str] = mapped_column(String(60), default="", server_default="")
+    quittance_montant: Mapped[Optional[Decimal]] = mapped_column(Money)
+    quittance_date: Mapped[Optional[date]] = mapped_column(Date)
     dossier: Mapped[Dossier] = relationship(back_populates="declaration")
     messages: Mapped[list["DeclMessage"]] = relationship(order_by="DeclMessage.id")
+
+    @property
+    def delai_jours(self) -> Optional[float]:
+        """Délai de dédouanement : de la transmission au bon à enlever, en jours."""
+        if self.transmise_le and self.bae_le:
+            return round((self.bae_le - self.transmise_le).total_seconds() / 86400, 1)
+        return None
+
+    @property
+    def attente_jours(self) -> Optional[int]:
+        """Jours écoulés depuis la transmission, tant que le bon à enlever n'est pas obtenu."""
+        if self.transmise_le and not self.bae_le and self.statut != "Rejetée":
+            return (datetime.utcnow() - self.transmise_le).days
+        return None
+
+    @property
+    def dossier_num(self) -> str:
+        return self.dossier.num
+
+    @property
+    def client_nom(self) -> str:
+        return self.dossier.client.nom
+
+    @property
+    def type_operation(self) -> str:
+        return self.dossier.type
+
+    @property
+    def regime(self) -> str:
+        return self.dossier.regime or ""
 
 
 class DeclMessage(Base):

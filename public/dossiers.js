@@ -105,7 +105,12 @@ if(w){if(s==='Brouillon')A.push(`<button class="pri" ${ok?'':'disabled title="Co
 if(s==='Transmise')A.push(...['Acceptée','Contrôle','Rejetée'].map(r=>`<button class="${r==='Rejetée'?'dg':'ghost'}" onclick="dsRep('${r}')">Réponse : ${r}</button>`));
 if(['Acceptée','Contrôle'].includes(s))A.push(`<button class="pri" onclick="dsRep('Bon à enlever')">Réponse : Bon à enlever</button>`);
 if(s==='Rejetée')A.push(`<button class="ghost" onclick="dsDecl('/rouvrir')">Rouvrir pour correction</button>`)}
-dsPaint(`<div class="card"><h3>Déclaration ${esc(x.ref)} ${badge(s)}</h3>${A.length?`<div class="bar">${A.join('')}</div>`:''}
+if([...W.douane,'Comptable'].includes(role)&&['Acceptée','Contrôle'].includes(s)&&!x.quittance_ref)A.push(`<button class="${x.montant_liquide>0?'pri':'ghost'}" onclick="dsQuit(${x.montant_liquide||0})">Enregistrer la quittance</button>`);
+const g=(l,v)=>`<div><span>${l}</span>${v||'—'}</div>`,info2=`<div class="g" style="margin:12px 0">${g('Référence douane',esc(x.ref_douane))}${g('Créée le',hfr(x.created_at))}${g('Transmise le',hfr(x.transmise_le))}
+${g('Liquidation figée',x.montant_liquide!=null?mt(x.montant_liquide):'')}${g('Quittance',x.quittance_ref?`${esc(x.quittance_ref)} · ${mt(x.quittance_montant)} · ${dfr(x.quittance_date)}`:'')}
+${g('Bon à enlever',x.bae_le?`${hfr(x.bae_le)} (en ${jours(x.delai_jours)})`:x.attente_jours!=null?`en attente depuis ${x.attente_jours} j`:'')}</div>`;
+dsPaint(`<div class="card"><h3>Déclaration ${esc(x.ref)} ${badge(s)}</h3>${info2}${A.length?`<div class="bar">${A.join('')}</div>`:''}
+${s!=='Brouillon'&&x.montant_liquide!=null&&Math.round(x.montant_liquide)!==Math.round(L.total)?`<p class="note">Liquidation figée à la transmission : ${mt(x.montant_liquide)} (le calcul actuel donne ${mt(L.total)}, paramètres modifiés depuis).</p>`:''}
 <div class="tbl"><table><tr><th>Élément</th><th>Taux</th><th>Montant</th></tr><tr><td>Valeur CIF (valeur + fret + assurance)</td><td></td><td>${mt(L.valeur_cif)}</td></tr>
 <tr><td>Droit de douane${L.code_sh_connu?'':' <span class="mut">(taux par défaut, code SH non paramétré)</span>'}</td><td>${pct(L.droit_douane.taux)}</td><td>${mt(L.droit_douane.montant)}</td></tr>
 ${L.autres_taxes.map(t=>`<tr><td>${esc(t.nom)}</td><td>${pct(t.taux)}</td><td>${mt(t.montant)}</td></tr>`).join('')}${+L.accise.montant?`<tr><td>Accise</td><td>${pct(L.accise.taux)}</td><td>${mt(L.accise.montant)}</td></tr>`:''}
@@ -113,7 +118,10 @@ ${L.autres_taxes.map(t=>`<tr><td>${esc(t.nom)}</td><td>${pct(t.taux)}</td><td>${
 <div class="card"><h3>Contrôles de cohérence</h3>${k.controles.map(c=>`<div class="al">${c.conforme?badge('Conforme'):'<span class="b ba">Bloquant</span>'} ${esc(c.controle)}</div>`).join('')}</div>
 <div class="card"><h3>Messages douaniers</h3>${[...x.messages].reverse().map(m=>`<div class="al"><span class="b ${{envoi:'in','réception':'ok',interne:''}[m.sens]||''}">${esc(m.sens)}</span> <span class="mut">${hfr(m.created_at)}</span> ${esc(m.texte)}</div>`).join('')||'<p class="mut">Aucun message.</p>'}</div>`)}
 async function dsDecl(p){try{await api(dsUrl('/declaration'+p),{method:'POST'});await dsRefresh()}catch(e){fail('Action impossible',e)}}
-const dsRep=s=>ask(`Réponse de la douane : ${s}`,[{n:'texte',l:'Texte du message (facultatif)'}],async f=>{try{await api(dsUrl('/declaration/messages'),{method:'POST',json:{statut:s,texte:f.texte}});await dsRefresh()}catch(e){fail('Réponse non enregistrée',e)}});
+const dsRep=s=>ask(`Réponse de la douane : ${s}`,[...(s==='Acceptée'?[{n:'ref_douane',l:'Référence d’enregistrement douanier'}]:[]),{n:'texte',l:s==='Rejetée'?'Motif du rejet':'Texte du message (facultatif)',r:s==='Rejetée'}],
+async f=>{try{await api(dsUrl('/declaration/messages'),{method:'POST',json:{statut:s,texte:f.texte,ref_douane:f.ref_douane||''}});await dsRefresh()}catch(e){fail('Réponse non enregistrée',e)}});
+const dsQuit=m=>ask('Quittance des droits et taxes',[{n:'ref',l:'N° de quittance',r:1},{n:'montant',l:`Montant payé (${base()})`,t:'number',v:Math.round(m),r:1},{n:'date',l:'Date de paiement',t:'date',v:today()}],
+async f=>{try{await api(dsUrl('/declaration/quittance'),{method:'POST',json:{ref:f.ref,montant:+f.montant,date:f.date||null}});await dsRefresh()}catch(e){fail('Quittance refusée',e)}});
 async function dsRefresh(){[DS.d,DS.jal]=await Promise.all([api(dsUrl()),api(dsUrl('/jalons'))]);paintDossiers();dsTabLoad()}
 
 /* Transit */
