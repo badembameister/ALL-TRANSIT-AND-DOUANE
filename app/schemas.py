@@ -267,7 +267,7 @@ class MessageIn(BaseModel):
 
 
 class LigneIn(BaseModel):
-    libelle: str
+    libelle: str = Field(min_length=2)
     montant: Decimal = Field(gt=0, description="Montant en devise de base")
 
 
@@ -281,30 +281,114 @@ class LigneOut(ORM):
     montant: float
 
 
+ModeReglement = Literal["Virement", "Chèque", "Espèces", "Mobile money", "Carte", "Compensation", "Avance"]
+
+
 class PaiementIn(BaseModel):
     montant: Decimal = Field(gt=0, description="Montant en devise de la facture")
+    mode: ModeReglement = "Virement"
+    reference: str = ""
+    date: Optional[_dt.date] = None
 
 
 class PaiementOut(ORM):
+    id: int
     date: date
     montant: float
+    mode: str = "Virement"
+    reference: str = ""
+
+    @field_validator("mode", "reference", mode="before")
+    @classmethod
+    def _txt(cls, v):
+        return v or ""
+
+
+class AvoirIn(BaseModel):
+    montant: Decimal = Field(gt=0, description="Montant en devise de la facture")
+    motif: str = Field(min_length=3)
+
+
+class AvoirOut(ORM):
+    id: int
+    num: str
+    date: date
+    motif: str
+    montant: float
+
+
+class AvanceIn(BaseModel):
+    montant: Decimal = Field(gt=0, description="Montant en devise du client")
+    mode: ModeReglement = "Virement"
+    reference: str = ""
+    date: Optional[_dt.date] = None
+
+
+class AvanceOut(ORM):
+    id: int
+    dossier_id: int
+    date: date
+    montant: float
+    devise: str
+    mode: str
+    reference: str
+    facture_id: Optional[int]
 
 
 class FactureOut(ORM):
     id: int
     num: str
     dossier_id: int
+    dossier_num: str
     client_id: int
+    client_nom: str
     devise: str
     date_emission: date
     echeance: date
     lignes: list[LigneOut]
     paiements: list[PaiementOut]
+    avoirs: list[AvoirOut] = []
     total: float
     paye: float
+    total_avoirs: float
     solde: float
     statut: str
     relances: int
+    derniere_relance: Optional[date] = None
+    jours_retard: int
+    devis_id: Optional[int] = None
+
+
+class DevisIn(BaseModel):
+    lignes: list[LigneIn] = Field(min_length=1)
+    validite_jours: int = Field(default=30, ge=1, le=180)
+    conditions: str = ""
+
+
+class DevisOut(ORM):
+    id: int
+    num: str
+    dossier_id: int
+    dossier_num: str
+    client_id: int
+    client_nom: str
+    devise: str
+    date_emission: date
+    validite: date
+    statut: str
+    conditions: str
+    lignes: list
+    total: float
+    expire: bool
+    cree_par: str
+
+
+class DevisStatutIn(BaseModel):
+    statut: Literal["Envoyé", "Accepté", "Refusé"]
+
+
+class FacturerDevisIn(BaseModel):
+    refacturer_debours: bool = False
 
 
 class TaxIn(BaseModel):

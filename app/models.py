@@ -204,9 +204,13 @@ class Facture(Base):
     date_emission: Mapped[date] = mapped_column(Date, default=date.today)
     echeance: Mapped[date] = mapped_column(Date)
     relances: Mapped[int] = mapped_column(default=0)
+    derniere_relance: Mapped[Optional[date]] = mapped_column(Date)
+    devis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("devis.id"))
     dossier: Mapped[Dossier] = relationship(back_populates="facture")
-    lignes: Mapped[list["FactureLigne"]] = relationship(cascade="all, delete-orphan")
-    paiements: Mapped[list["Paiement"]] = relationship(cascade="all, delete-orphan")
+    client: Mapped[Client] = relationship()
+    lignes: Mapped[list["FactureLigne"]] = relationship(cascade="all, delete-orphan", order_by="FactureLigne.id")
+    paiements: Mapped[list["Paiement"]] = relationship(cascade="all, delete-orphan", order_by="Paiement.id")
+    avoirs: Mapped[list["Avoir"]] = relationship(cascade="all, delete-orphan", order_by="Avoir.id")
 
     @property
     def total(self) -> Decimal:
@@ -217,13 +221,29 @@ class Facture(Base):
         return sum((x.montant for x in self.paiements), Decimal(0))
 
     @property
+    def total_avoirs(self) -> Decimal:
+        return sum((x.montant for x in self.avoirs), Decimal(0))
+
+    @property
     def solde(self) -> Decimal:
-        return self.total - self.paye
+        return self.total - self.paye - self.total_avoirs
+
+    @property
+    def jours_retard(self) -> int:
+        return max(0, (date.today() - self.echeance).days) if self.solde > 0 else 0
+
+    @property
+    def client_nom(self) -> str:
+        return self.client.nom
+
+    @property
+    def dossier_num(self) -> str:
+        return self.dossier.num
 
     @property
     def statut(self) -> str:
         if self.solde <= 0:
-            return "Payée"
+            return "Payée" if not self.avoirs else "Soldée"
         if self.echeance < date.today():
             return "En retard"
         return "Partielle" if self.paye > 0 else "Impayée"
@@ -243,6 +263,65 @@ class Paiement(Base):
     facture_id: Mapped[int] = mapped_column(ForeignKey("factures.id"))
     date: Mapped[date] = mapped_column(Date, default=date.today)
     montant: Mapped[Decimal] = mapped_column(Money)
+    mode: Mapped[str] = mapped_column(String(30), default="Virement", server_default="Virement")
+    reference: Mapped[str] = mapped_column(String(80), default="", server_default="")
+
+
+class Avoir(Base):
+    """Avoir (note de crédit) : réduit le montant dû d'une facture, sans la modifier."""
+    __tablename__ = "avoirs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    num: Mapped[str] = mapped_column(String(30), unique=True, default="")
+    facture_id: Mapped[int] = mapped_column(ForeignKey("factures.id"))
+    date: Mapped[date] = mapped_column(Date, default=date.today)
+    motif: Mapped[str] = mapped_column(String(300))
+    montant: Mapped[Decimal] = mapped_column(Money)
+
+
+class Avance(Base):
+    """Avance (acompte) reçue du client sur un dossier avant facturation ; imputée à la facture à sa création."""
+    __tablename__ = "avances"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dossier_id: Mapped[int] = mapped_column(ForeignKey("dossiers.id"))
+    date: Mapped[date] = mapped_column(Date, default=date.today)
+    montant: Mapped[Decimal] = mapped_column(Money)
+    devise: Mapped[str] = mapped_column(String(3))
+    mode: Mapped[str] = mapped_column(String(30), default="Virement")
+    reference: Mapped[str] = mapped_column(String(80), default="")
+    facture_id: Mapped[Optional[int]] = mapped_column(ForeignKey("factures.id"))
+
+
+class Devis(Base):
+    __tablename__ = "devis"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    num: Mapped[str] = mapped_column(String(30), unique=True, default="")
+    dossier_id: Mapped[int] = mapped_column(ForeignKey("dossiers.id"))
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
+    devise: Mapped[str] = mapped_column(String(3))
+    date_emission: Mapped[date] = mapped_column(Date, default=date.today)
+    validite: Mapped[date] = mapped_column(Date)
+    statut: Mapped[str] = mapped_column(String(20), default="Brouillon")  # Brouillon | Envoyé | Accepté | Refusé | Facturé
+    conditions: Mapped[str] = mapped_column(Text, default="")
+    lignes: Mapped[list] = mapped_column(JSON, default=list)  # [{"libelle", "montant"}] en devise du devis
+    cree_par: Mapped[str] = mapped_column(String(200), default="")
+    dossier: Mapped[Dossier] = relationship()
+    client: Mapped[Client] = relationship()
+
+    @property
+    def total(self) -> Decimal:
+        return sum((Decimal(str(x["montant"])) for x in self.lignes or []), Decimal(0))
+
+    @property
+    def expire(self) -> bool:
+        return self.statut in {"Brouillon", "Envoyé"} and self.validite < date.today()
+
+    @property
+    def client_nom(self) -> str:
+        return self.client.nom
+
+    @property
+    def dossier_num(self) -> str:
+        return self.dossier.num
 
 
 # --- Transport et suivi opérationnel (cahier des charges, point 8) ---

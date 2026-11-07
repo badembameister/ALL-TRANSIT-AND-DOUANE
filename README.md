@@ -32,7 +32,15 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 - Souveraineté des données : choisissez la région de la base selon vos exigences (point 17 du cahier des charges).
 
 ## Interface
-`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Opérations et Utilisateurs sont branchés sur l'API. Le tableau de bord, les listes Douane et Facturation, Clients et Administration utilisent encore des données de démonstration stockées dans le navigateur.
+`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Opérations, Facturation et Utilisateurs sont branchés sur l'API. Le tableau de bord, la liste Douane, Clients et Administration utilisent encore des données de démonstration stockées dans le navigateur.
+
+## Module Facturation
+Menu « Facturation » (comptable, direction, commercial ; écriture des factures pour le comptable, des devis aussi pour le commercial et le responsable transit), et onglet « Facturation et marge » de chaque dossier.
+- **Devis** depuis un dossier, en devise du client, avec validité et conditions : brouillon, envoyé, accepté ou refusé, puis facturé (avec ou sans débours). Un devis expiré ne peut plus être accepté.
+- **Factures** multi-devises (taux paramétrables), refacturation des droits et taxes avancés, **avances** reçues avant facture et imputées automatiquement, **avoirs** numérotés `AV-AAAA-NNNN`, **règlements** partiels avec mode (virement, chèque, espèces, mobile money…) et référence. Statuts : impayée, partielle, en retard, payée, soldée (par avoir).
+- **Relances** : liste des factures dues (dès le lendemain de l'échéance, puis tous les 15 jours), relance unitaire ou groupée, lettre générée selon le niveau (rappel amiable, deuxième relance, mise en demeure). L'envoi par e-mail ou SMS attend une passerelle.
+- **Pilotage** : facturé et encaissé du mois, créances, retards, devis en attente, balance âgée (non échu, 1-30, 31-60, 61-90, plus de 90 jours).
+- **Exports comptables** CSV compatibles Excel (factures, journal des ventes avec contre-valeur en devise de base, règlements), filtrables par période. Impression des factures et devis (PDF via le navigateur).
 
 ## Module Dossiers
 Menu « Dossiers », branché sur l'API ; un client ne voit que ses propres dossiers.

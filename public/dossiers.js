@@ -5,9 +5,9 @@ const DOC_LIB={facture:'Facture commerciale',packing:'Packing list',bl:'Connaiss
 const INCOTERMS=['','EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP'];
 const COUT_CAT=['Transport','Manutention','Magasinage','Frais portuaires','Droits et taxes','Honoraires agent','Frais bancaires','Autre'];
 const reqDocs=t=>t==='Export'?['facture','packing']:(/^Transit/.test(t)||t==='T1/T2')?['facture','packing','cmr']:['facture','packing','bl'];
-const isStaff=()=>role!=='Client',canFact=()=>['Administrateur','Comptable','Direction','Responsable transit'].includes(role);
+const isStaff=()=>role!=='Client',canFact=()=>['Administrateur','Comptable','Direction','Responsable transit','Commercial'].includes(role);
 const dsBadge=s=>s?badge(s):'<span class="mut">—</span>';
-const base=()=>DS.P?DS.P.base:'GNF';
+const base=()=>DS.P?DS.P.base:(typeof FC!=='undefined'&&FC.R?FC.R.devise_base:'GNF');
 const pct=v=>(+v).toLocaleString('fr-FR',{maximumFractionDigits:2})+' %';
 const dsUrl=p=>`/dossiers/${DS.sel}${p||''}`;
 
@@ -133,14 +133,15 @@ ${M.map(m=>`<tr><td class="mono">${esc(m.num)}</td><td>${dfr(m.date_prevue)}</td
 ${ACCESS[role].includes('ops')?'<div class="bar" style="margin-top:12px"><button class="ghost" onclick="go(\'ops\')">Ouvrir le module Opérations</button></div>':''}</div>`)}
 
 /* Facturation, coûts et marge */
-async function dsFact(){let f=null;const wf=W.fact.includes(role),wc=[...W.dossier,...W.fact].includes(role);
-if(canFact()){try{f=await api(dsUrl('/facture'))}catch(e){}}const C=await api(dsUrl('/couts')),b=C.devise_base,mb=v=>nf(v)+' '+b;
-const fac=!canFact()?'':!f?`<div class="card"><p>Aucune facture pour ce dossier.</p>${wf?'<button class="pri" onclick="dsInvoice()">Générer la facture</button>':''}</div>`
-:`<div class="card"><h3>${esc(f.num)} ${badge(f.statut)}</h3><p class="mut">Émise le ${dfr(f.date_emission)}, échéance ${dfr(f.echeance)}${f.relances?`, ${f.relances} relance(s)`:''}</p>
-<div class="tbl"><table>${f.lignes.map(l=>`<tr><td>${esc(l.libelle)}</td><td>${(+l.montant).toLocaleString('fr-FR')} ${f.devise}</td></tr>`).join('')}<tr><th>Total</th><th>${(+f.total).toLocaleString('fr-FR')} ${f.devise}</th></tr>
-<tr><td>Réglé</td><td>${(+f.paye).toLocaleString('fr-FR')} ${f.devise}</td></tr><tr><th>Solde</th><th>${(+f.solde).toLocaleString('fr-FR')} ${f.devise}</th></tr></table></div>
-${wf&&f.statut!=='Payée'?`<div class="bar" style="margin-top:12px"><button class="pri" onclick="dsPay(${f.id},${f.solde},'${f.devise}')">Enregistrer un règlement</button><button class="ghost" onclick="dsRelance(${f.id})">Relancer</button></div>`:''}</div>`;
-dsPaint(`${fac}<div class="kp"><div><b>${nf(C.facture)}</b><span>Facturé (${b})</span></div><div><b>${nf(C.total_couts)}</b><span>Coûts engagés (${b})</span></div>
+async function dsFact(){let f=null,dv=[],av=[];const wf=W.fact.includes(role),wc=[...W.dossier,...W.fact].includes(role);
+if(canFact()){[f,dv,av]=await Promise.all([api(dsUrl('/facture')).catch(()=>null),api(dsUrl('/devis')).catch(()=>[]),api(dsUrl('/avances')).catch(()=>[])])}
+DS.dv=dv;const C=await api(dsUrl('/couts')),b=C.devise_base,mb=v=>nf(v)+' '+b,dev=f?f.devise:(dv[0]?.devise||'');
+const fac=!canFact()?'':!f?`<div class="card"><p>Aucune facture pour ce dossier.</p><div class="bar">${wf?'<button class="pri" onclick="dsInvoice()">Générer la facture</button>':''}${W.devis.includes(role)?`<button class="ghost" onclick="dvNew(${DS.sel})">Établir un devis</button>`:''}${wf?'<button class="ghost" onclick="dsAvance()">Enregistrer une avance</button>':''}</div></div>`
+:`<div class="card"><h3>${esc(f.num)} ${badge(f.statut)}</h3><p class="mut">Émise le ${dfr(f.date_emission)}, échéance ${dfr(f.echeance)}${f.jours_retard?`, <b>${f.jours_retard} jours de retard</b>`:''}${f.relances?`, ${f.relances} relance(s)`:''}</p>${fcDetail(f)}
+<div class="bar" style="margin-top:12px">${wf&&f.solde>0?`<button class="pri" onclick="fcPay(${f.id},${f.solde},'${f.devise}')">Enregistrer un règlement</button><button class="ghost" onclick="fcAvoir(${f.id},${f.solde},'${f.devise}')">Établir un avoir</button><button class="ghost" onclick="fcRelance(${f.id})">Relancer</button>`:''}<button class="ghost" onclick="fcPrint(${f.id})">Imprimer / PDF</button></div></div>`;
+const devis=!canFact()||!dv.length?'':`<div class="card tbl"><h3>Devis</h3><table><tr><th>Devis</th><th>Date</th><th>Montant</th><th>Valable jusqu’au</th><th>Statut</th><th></th></tr>${dv.map(x=>`<tr><td class="mono">${esc(x.num)}</td><td>${dfr(x.date_emission)}</td><td>${mo(x.total,x.devise)}</td><td>${dfr(x.validite)}</td><td>${dvBadge(x)}</td><td class="act">${dvActions(x)}</td></tr>`).join('')}</table>${!f&&W.devis.includes(role)?`<div class="bar" style="margin-top:10px"><button class="ghost" onclick="dvNew(${DS.sel})">Nouveau devis</button></div>`:''}</div>`;
+const avances=!av.length?'':`<div class="card"><h3>Avances reçues</h3>${av.map(a=>`<div class="al"><span class="b ${a.facture_id?'ok':'wa'}">${a.facture_id?'Imputée':'En attente de facture'}</span> ${dfr(a.date)} · ${mo(a.montant,a.devise)} · ${esc(a.mode)}${a.reference?' · '+esc(a.reference):''}</div>`).join('')}${!f&&wf?'<div class="bar" style="margin-top:10px"><button class="ghost" onclick="dsAvance()">Nouvelle avance</button></div>':''}</div>`;
+dsPaint(`${fac}${devis}${avances}<div class="kp"><div><b>${nf(C.facture)}</b><span>Facturé (${b})</span></div><div><b>${nf(C.total_couts)}</b><span>Coûts engagés (${b})</span></div>
 <div class="${C.marge<0?'w':''}"><b>${nf(C.marge)}</b><span>Marge${C.taux_marge!=null?` (${pct(C.taux_marge)})`:''}</span></div></div>
 <div class="card tbl"><div class="bar"><h3 style="margin:0">Coûts du dossier</h3>${wc?'<button class="pri" onclick="dsCout()">Ajouter un coût</button>':''}</div><table><tr><th>Date</th><th>Catégorie</th><th>Libellé</th><th>Fournisseur</th><th>Montant</th><th>En ${b}</th><th></th></tr>
 ${C.couts.map(c=>`<tr><td>${dfr(c.date)}</td><td>${esc(c.categorie)}</td><td>${esc(c.libelle)}</td><td>${esc(c.fournisseur||'—')}</td><td>${(+c.montant).toLocaleString('fr-FR')} ${c.devise}</td><td>${mb(c.montant_base)}</td>
@@ -152,8 +153,8 @@ ask(`Facture du dossier ${DS.d.num}`,[n('tr','Honoraires de transit'),n('dd','D�
 {n:'deb',l:'Refacturer les droits et taxes avancés (débours)',o:[['non','Non'],['oui','Oui']]}],async f=>{const L={tr:'Honoraires de transit',dd:'Dédouanement',tp:'Transport',ma:'Manutention',mg:'Magasinage',dv:'Frais divers'};
 const lignes=Object.entries(L).filter(([k])=>+f[k]>0).map(([k,l])=>({libelle:l,montant:+f[k]}));
 try{await api(dsUrl('/facture'),{method:'POST',json:{lignes,refacturer_debours:f.deb==='oui'}});await dsRefresh()}catch(e){fail('Facture non générée',e)}})}
-const dsPay=(fid,solde,dev)=>ask('Règlement',[{n:'m',l:`Montant (${dev})`,t:'number',v:solde,r:1}],async f=>{try{await api(`/factures/${fid}/paiements`,{method:'POST',json:{montant:+f.m}});await dsRefresh()}catch(e){fail('Règlement refusé',e)}});
-const dsRelance=async fid=>{try{await api(`/factures/${fid}/relance`,{method:'POST'});dsTabLoad()}catch(e){fail('Relance impossible',e)}};
+const dsAvance=()=>ask('Avance reçue du client',[{n:'montant',l:'Montant (devise du client)',t:'number',r:1},{n:'mode',l:'Mode',o:MODES},{n:'reference',l:'Référence'},{n:'date',l:'Date',t:'date',v:today()}],
+async f=>{try{await api(dsUrl('/avances'),{method:'POST',json:{...f,montant:+f.montant,date:f.date||null}});dsTabLoad()}catch(e){fail('Avance refusée',e)}});
 const dsCout=()=>ask('Nouveau coût',[{n:'categorie',l:'Catégorie',o:COUT_CAT},{n:'libelle',l:'Libellé',r:1},{n:'fournisseur',l:'Fournisseur'},{n:'montant',l:'Montant',t:'number',r:1},
 {n:'devise',l:'Devise',o:Object.keys(DS.P?.rates||{GNF:1}),v:base()},{n:'date',l:'Date',t:'date',v:today()}],async f=>{try{await api(dsUrl('/couts'),{method:'POST',json:{...f,montant:+f.montant,date:f.date||null}});dsTabLoad()}catch(e){fail('Coût non enregistré',e)}});
 const dsCoutDel=async id=>{if(!confirm('Supprimer ce coût ?'))return;try{await api(dsUrl('/couts/'+id),{method:'DELETE'});dsTabLoad()}catch(e){fail('Suppression impossible',e)}};
