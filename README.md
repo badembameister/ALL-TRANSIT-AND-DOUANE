@@ -32,7 +32,15 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 - Souveraineté des données : choisissez la région de la base selon vos exigences (point 17 du cahier des charges).
 
 ## Interface
-`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Douane, Opérations, Facturation, Clients, Administration et Utilisateurs sont branchés sur l'API. Le tableau de bord utilise encore des données de démonstration stockées dans le navigateur.
+`public/index.html` exige une connexion à l'API (comptes et rôles réels). Tous les écrans sont branchés sur l'API ; chaque module a son fichier dans `public/` (`dashboard.js`, `dossiers.js`, `transit.js`, `douane.js`, `ops.js`, `factures.js`, `clients.js`, `admin.js`).
+
+## Tableau de bord
+Menu « Tableau de bord » (administrateur, responsable transit, commercial, comptable, direction), calculé par `GET /api/pilotage?du=&au=` sur la période choisie (ce mois, 3 mois, 12 mois, année, ou dates libres). Indicateurs du point 13 du cahier des charges :
+- **Activité** : dossiers par statut, ouverts sur la période, part des dossiers actifs complets, pièces manquantes.
+- **Douane, transit, opérations** : délai moyen de dédouanement, taux d'acceptation au premier dépôt, rejets et contrôles, transits en cours et non apurés en retard, missions en retard et incidents.
+- **Finance** : chiffre d'affaires facturé (avec et sans débours), créances et retards ; chiffre d'affaires par mois sur 12 mois (graphique avec info-bulle et vue tableau), par client, par type de prestation et par personne ayant émis les factures.
+- **Rentabilité** (débours exclus) : par client, par transporteur, dossiers les plus rentables et dossiers à marge faible.
+- **Alertes consolidées** de tous les modules, filtrables par module ; chacune ouvre l'objet concerné (dossier, transit, facture, partenaire, opérations).
 
 ## Module Administration
 Menu « Administration » (administrateur ; le journal d'audit est aussi consultable par la direction via l'API).

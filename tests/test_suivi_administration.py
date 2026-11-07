@@ -70,7 +70,9 @@ def test_societe_dans_relances(c):
     from types import SimpleNamespace as N
     f = N(relances=0, num="FA-X", date_emission=date.today(), echeance=date.today(), jours_retard=3, dossier_num="D-1", solde=10, devise="GNF")
     with SessionLocal() as db:
-        assert "Le service recouvrement – Alliance Transit SARL" in _lettre(f, get_societe(db))
+        lettre = _lettre(f, get_societe(db))
+        assert "Le service recouvrement – Alliance Transit SARL" in lettre
+        assert "Madame, Monsieur," in lettre and "(3 jours de retard), dossier D-1" in lettre  # la ponctuation survit
     assert c.put("/societe", json={"nom": "X"}).status_code == 422
 
 

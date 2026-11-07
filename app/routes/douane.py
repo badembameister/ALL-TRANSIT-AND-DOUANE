@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..fmt import milliers
 from ..audit import audit
 from ..customs import compute, controls
 from ..db import get_db
@@ -102,7 +103,7 @@ def transmettre(d: Dossier = Depends(dossier_for), u: User = Depends(require(*W_
     ref = gateway.submit(x.ref, {"dossier": d.num, "liquidation": str(total)})
     x.statut, x.transmise_le, x.montant_liquide = "Transmise", datetime.utcnow(), total
     x.bae_le = x.reponse_le = None
-    _msg(x, "envoi", f"Déclaration transmise au système douanier (réf. {ref}), liquidation {total:,.0f}".replace(",", " "))
+    _msg(x, "envoi", f"Déclaration transmise au système douanier (réf. {ref}), liquidation {milliers(total)}")
     audit(db, u, "declaration", d.id, "transmission", ref)
     db.commit()
     return x
@@ -148,8 +149,8 @@ def quittance(body: QuittanceIn, d: Dossier = Depends(dossier_for), u: User = De
     d.couts.append(Cout(categorie="Droits et taxes", libelle=f"Quittance {x.quittance_ref} ({x.ref})", montant=body.montant,
                         devise=p["base"], date=x.quittance_date, saisi_par=u.email))
     ecart = body.montant - (x.montant_liquide or Decimal(0))
-    _msg(x, "interne", f"Quittance {x.quittance_ref} : {body.montant:,.0f} {p['base']} payés".replace(",", " ")
-         + (f", écart de {ecart:,.0f} avec la liquidation".replace(",", " ") if ecart else ""))
+    _msg(x, "interne", f"Quittance {x.quittance_ref} : {milliers(body.montant)} {p['base']} payés"
+         + (f", écart de {milliers(ecart)} avec la liquidation" if ecart else ""))
     audit(db, u, "declaration", d.id, "quittance", f"{x.quittance_ref} : {body.montant}")
     db.commit()
     return x

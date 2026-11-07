@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..fmt import milliers
 from ..audit import audit
 from ..customs import compute
 from ..db import get_db
@@ -212,8 +213,8 @@ def _lettre(f: Facture, societe: dict) -> str:
     }[n]
     return (f"Objet : {n} – facture {f.num}\n\nMadame, Monsieur,\n\n{corps}\n\nFacture {f.num} du {f.date_emission:%d/%m/%Y}, "
             f"échéance {f.echeance:%d/%m/%Y} ({f.jours_retard} jours de retard), dossier {f.dossier_num}.\n"
-            f"Montant restant dû : {f.solde:,.2f} {f.devise}.\n\nVeuillez agréer nos salutations distinguées.\n"
-            f"{societe['signature']} – {societe['nom']}").replace(",", " ")
+            f"Montant restant dû : {milliers(f.solde, 2)} {f.devise}.\n\nVeuillez agréer nos salutations distinguées.\n"
+            f"{societe['signature']} – {societe['nom']}")
 
 
 def _relancer(db: Session, u: User, f: Facture) -> dict:

@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from ..fmt import milliers
 from ..audit import audit
 from ..db import get_db
 from ..deps import get_params
@@ -109,7 +110,7 @@ def fiche(cid: int, _: User = Depends(require(*STAFF)), db: Session = Depends(ge
     limite = date.today() + timedelta(days=ALERTE_JOURS)
     alertes = []
     if c.plafond_credit and encours > c.plafond_credit:
-        alertes.append(f"Encours de {encours:,.0f} au-delà du plafond de crédit ({c.plafond_credit:,.0f})".replace(",", " "))
+        alertes.append(f"Encours de {milliers(encours)} au-delà du plafond de crédit ({milliers(c.plafond_credit)})")
     if retard:
         alertes.append(f"{len(retard)} facture(s) en retard de paiement")
     alertes += [f"{p.type} {'expiré' if p.expire else 'expire'} le {p.expiration:%d/%m/%Y}" for p in c.pieces
