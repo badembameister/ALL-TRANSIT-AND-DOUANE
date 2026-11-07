@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .security import ROLES
 
@@ -488,27 +488,80 @@ class FacturerDevisIn(BaseModel):
 
 
 class TaxIn(BaseModel):
-    n: str
-    t: float = Field(ge=0)
+    n: str = Field(min_length=2)
+    t: float = Field(ge=0, le=100)
     base: Literal["cif", "cifdd"] = "cif"
     exp: bool = False
 
 
 class ShIn(BaseModel):
     c: str
-    l: str
-    dd: float = Field(ge=0)
-    ac: float = Field(default=0, ge=0)
+    l: str = Field(min_length=2)
+    dd: float = Field(ge=0, le=100)
+    ac: float = Field(default=0, ge=0, le=100)
+
+    @field_validator("c")
+    @classmethod
+    def _code(cls, v: str) -> str:
+        v = "".join(ch for ch in v if ch.isdigit())
+        if not 2 <= len(v) <= 10:
+            raise ValueError("Code SH : 2 à 10 chiffres")
+        return v
 
 
 class ParamsIn(BaseModel):
     base: str
     rates: dict[str, float]
-    tva: float = Field(ge=0)
-    dd0: float = Field(ge=0)
+    tva: float = Field(ge=0, le=100)
+    dd0: float = Field(ge=0, le=100)
     reg: list[str]
     taxes: list[TaxIn]
     sh: list[ShIn]
+    rates_maj: Optional[str] = None  # date de dernière mise à jour des taux (renseignée par l'API)
+
+    @model_validator(mode="after")
+    def _coherence(self):
+        self.base = self.base.strip().upper()
+        self.rates = {k.strip().upper(): v for k, v in self.rates.items()}
+        for k, v in self.rates.items():
+            if len(k) != 3 or not k.isalpha():
+                raise ValueError(f"Code devise invalide : « {k} » (3 lettres, ex. USD)")
+            if v <= 0:
+                raise ValueError(f"Taux de change de {k} : doit être positif")
+        if self.base not in self.rates or self.rates[self.base] != 1:
+            raise ValueError(f"La devise de base {self.base} doit figurer dans les taux avec un taux de 1")
+        self.reg = [r.strip() for r in self.reg if r.strip()]
+        if not self.reg or len(set(r.lower() for r in self.reg)) != len(self.reg):
+            raise ValueError("Régimes douaniers : au moins un, sans doublon")
+        codes = [x.c for x in self.sh]
+        doublons = sorted({c for c in codes if codes.count(c) > 1})
+        if doublons:
+            raise ValueError(f"Codes SH en double : {', '.join(doublons)}")
+        noms = [t.n.strip().lower() for t in self.taxes]
+        if len(set(noms)) != len(noms):
+            raise ValueError("Deux taxes portent le même nom")
+        return self
+
+
+class ShImportIn(BaseModel):
+    csv: str = Field(min_length=3, description="Lignes « code;libellé;droit %;accise % » (en-tête facultatif)")
+    mode: Literal["fusion", "remplacer"] = "fusion"
+
+
+class SocieteIn(BaseModel):
+    nom: str = Field(min_length=2)
+    slogan: str = ""
+    adresse: str = ""
+    ville: str = ""
+    pays: str = "Guinée"
+    telephone: str = ""
+    email: str = ""
+    nif: str = ""
+    rc: str = ""
+    banque: str = ""
+    compte: str = ""
+    pied_facture: str = ""
+    signature: str = "Service comptabilité"
 
 
 # --- Transport et suivi opérationnel ---

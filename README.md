@@ -32,7 +32,17 @@ L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
 - Souveraineté des données : choisissez la région de la base selon vos exigences (point 17 du cahier des charges).
 
 ## Interface
-`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Douane, Opérations, Facturation, Clients et Utilisateurs sont branchés sur l'API. Le tableau de bord et l'Administration utilisent encore des données de démonstration stockées dans le navigateur.
+`public/index.html` exige une connexion à l'API (comptes et rôles réels). Les écrans Dossiers, Transit, Douane, Opérations, Facturation, Clients, Administration et Utilisateurs sont branchés sur l'API. Le tableau de bord utilise encore des données de démonstration stockées dans le navigateur.
+
+## Module Administration
+Menu « Administration » (administrateur ; le journal d'audit est aussi consultable par la direction via l'API).
+- **Société** : raison sociale, adresse, contacts, NIF, RCCM, banque et compte, mentions de pied de facture, signature des relances. Utilisées sur les factures et devis imprimés et dans les lettres de relance.
+- **Devises et taux** : taux en devise de base, ajout ou retrait de devise, date de dernière mise à jour. Contrôles : devise de base à 1, taux positifs, codes ISO à 3 lettres.
+- **Taxes et TVA** : TVA, droit par défaut, autres taxes (taux, base CIF ou CIF + droits, application à l'export).
+- **Codes SH** : tarif avec recherche, ajout, modification, et **import CSV** (code;libellé;droit;accise), en fusion ou en remplacement ; rien n'est importé si une ligne est invalide.
+- **Régimes douaniers**.
+- **Journal d'audit** filtrable (objet, utilisateur, période, texte) et exportable en CSV ; chaque modification de paramètre y est détaillée (ex. « taux USD : 8600 -> 8650 »).
+- **Système** : état des intégrations (douane simulée, e-mail et SMS non configurés, GPS prêt), volumes par table, **export JSON** des données métier (sans fichiers joints ni mots de passe).
 
 ## Module Clients et partenaires
 Menu « Clients » : clients, fournisseurs, transporteurs, agents étrangers, destinataires et administrations (création et modification par le commercial et le responsable transit).

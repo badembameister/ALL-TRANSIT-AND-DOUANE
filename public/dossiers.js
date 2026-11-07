@@ -141,7 +141,7 @@ ${M.map(m=>`<tr><td class="mono">${esc(m.num)}</td><td>${dfr(m.date_prevue)}</td
 ${ACCESS[role].includes('ops')?'<div class="bar" style="margin-top:12px"><button class="ghost" onclick="go(\'ops\')">Ouvrir le module Opérations</button></div>':''}</div>`)}
 
 /* Facturation, coûts et marge */
-async function dsFact(){let f=null,dv=[],av=[];const wf=W.fact.includes(role),wc=[...W.dossier,...W.fact].includes(role);
+async function dsFact(){fcSoc();let f=null,dv=[],av=[];const wf=W.fact.includes(role),wc=[...W.dossier,...W.fact].includes(role);
 if(canFact()){[f,dv,av]=await Promise.all([api(dsUrl('/facture')).catch(()=>null),api(dsUrl('/devis')).catch(()=>[]),api(dsUrl('/avances')).catch(()=>[])])}
 DS.dv=dv;const C=await api(dsUrl('/couts')),b=C.devise_base,mb=v=>nf(v)+' '+b,dev=f?f.devise:(dv[0]?.devise||'');
 const fac=!canFact()?'':!f?`<div class="card"><p>Aucune facture pour ce dossier.</p><div class="bar">${wf?'<button class="pri" onclick="dsInvoice()">Générer la facture</button>':''}${W.devis.includes(role)?`<button class="ghost" onclick="dvNew(${DS.sel})">Établir un devis</button>`:''}${wf?'<button class="ghost" onclick="dsAvance()">Enregistrer une avance</button>':''}</div></div>`

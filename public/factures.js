@@ -1,6 +1,7 @@
 /* Module « Facturation » branché sur l'API : factures, devis, avances, avoirs, règlements, relances,
    balance âgée, exports comptables et impression (cahier des charges, point 9). */
-const FC={tab:'fact',q:'',st:'ouvertes',du:'',au:'',L:[],DV:[],RL:[],R:null};
+const FC={tab:'fact',q:'',st:'ouvertes',du:'',au:'',L:[],DV:[],RL:[],R:null,S:null};
+const fcSoc=()=>{if(!FC.S)api('/societe').then(s=>FC.S=s).catch(()=>{})};
 const MODES=['Virement','Chèque','Espèces','Mobile money','Carte','Compensation'];
 const FST=['Impayée','Partielle','En retard','Payée','Soldée'];
 const canF=()=>W.fact.includes(role),canDv=()=>W.devis.includes(role);
@@ -11,7 +12,7 @@ const fcAfter=()=>view==='fact'&&!sel?loadFact():dsRefresh();
 function vFactApi(){return`<div id="fcv"><h1>Facturation</h1><p class="mut">Chargement…</p></div>`}
 
 async function loadFact(){try{const p=new URLSearchParams();if(FC.du)p.set('du',FC.du);if(FC.au)p.set('au',FC.au);
-[FC.R,FC.L,FC.DV,FC.RL]=await Promise.all([api('/factures/resume'),api('/factures?'+p),api('/devis'),api('/factures-relances')])}
+fcSoc();[FC.R,FC.L,FC.DV,FC.RL]=await Promise.all([api('/factures/resume'),api('/factures?'+p),api('/devis'),api('/factures-relances')])}
 catch(e){$('#fcv').innerHTML=`<h1>Facturation</h1><p class="note">${esc(e.message)}</p>`;return}paintFact()}
 
 function paintFact(){if(view!=='fact'||sel||!$('#fcv'))return;const R=FC.R,b=R.devise_base,B=R.balance_agee,mx=Math.max(1,...Object.values(B));
@@ -51,12 +52,14 @@ async function fcRelance(id){try{const r=await api(`/factures/${id}/relance`,{me
 const fcLettre=(titre,txt)=>info(esc(titre),`<p class="mut">Texte à envoyer au client (l’envoi automatique par e-mail ou SMS nécessite une passerelle, pas encore branchée).</p><textarea readonly rows="12">${esc(txt)}</textarea>`);
 
 /* ---------- Impression (facture, devis) ---------- */
-function fcDoc(titre,num,x,lignes,extra){const w=window.open('','_blank');if(!w)return fail('Impression',new Error('Autorisez les fenêtres surgissantes pour imprimer'));
+function fcDoc(titre,num,x,lignes,extra){const S=FC.S||{nom:'Alliance Transit',slogan:'Transit, douane, logistique',ville:'Conakry',pays:'Guinée'},w=window.open('','_blank');
+const coord=[S.adresse,[S.ville,S.pays].filter(Boolean).join(', ')].filter(Boolean).map(esc).join('<br>'),ident=[S.telephone,S.email].filter(Boolean).map(esc).join(' · '),fisc=[S.nif&&'NIF '+S.nif,S.rc&&'RCCM '+S.rc].filter(Boolean).map(esc).join(' · ');if(!w)return fail('Impression',new Error('Autorisez les fenêtres surgissantes pour imprimer'));
 w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(titre)} ${esc(num)}</title><style>body{font:13px/1.5 system-ui,sans-serif;color:#111;margin:40px}h1{font-size:22px;margin:0}
 .h{display:flex;justify-content:space-between;border-bottom:2px solid #A8832F;padding-bottom:14px;margin-bottom:22px}table{width:100%;border-collapse:collapse;margin:18px 0}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}td:last-child,th:last-child{text-align:right}
-.m{color:#666}.t th{font-size:15px}@media print{body{margin:16mm}}</style></head><body><div class="h"><div><h1>Alliance Transit</h1><div class="m">Transit, douane, logistique · Conakry, Guinée</div></div>
+.m{color:#666}.t th{font-size:15px}@media print{body{margin:16mm}}</style></head><body><div class="h"><div><h1>${esc(S.nom)}</h1><div class="m">${esc(S.slogan||'')}</div><div class="m">${coord}</div><div class="m">${ident}</div><div class="m">${fisc}</div></div>
 <div style="text-align:right"><h1>${esc(titre)}</h1><div>${esc(num)}</div><div class="m">${extra.dates}</div></div></div><p><b>${esc(x.client_nom)}</b><br><span class="m">Dossier ${esc(x.dossier_num)}</span></p>
-<table><tr><th>Désignation</th><th>Montant (${esc(x.devise)})</th></tr>${lignes}</table>${extra.pied||''}<script>onload=()=>print()<\/script></body></html>`);w.document.close()}
+<table><tr><th>Désignation</th><th>Montant (${esc(x.devise)})</th></tr>${lignes}</table>${extra.pied||''}
+${S.banque||S.compte?`<p class="m">Règlement par virement : ${esc(S.banque||'')} ${S.compte?'· '+esc(S.compte):''}</p>`:''}${S.pied_facture?`<p class="m" style="border-top:1px solid #ddd;padding-top:10px">${esc(S.pied_facture)}</p>`:''}<script>onload=()=>print()<\/script></body></html>`);w.document.close()}
 async function fcPrint(id){const f=await api('/factures/'+id);fcDoc('Facture',f.num,f,f.lignes.map(l=>`<tr><td>${esc(l.libelle)}</td><td>${mo(l.montant,f.devise)}</td></tr>`).join('')+`<tr class="t"><th>Total</th><th>${mo(f.total,f.devise)}</th></tr>`
 +f.paiements.map(p=>`<tr><td class="m">Règlement du ${dfr(p.date)} (${esc(p.mode)})</td><td class="m">− ${mo(p.montant,f.devise)}</td></tr>`).join('')+f.avoirs.map(a=>`<tr><td class="m">Avoir ${esc(a.num)} : ${esc(a.motif)}</td><td class="m">− ${mo(a.montant,f.devise)}</td></tr>`).join('')
 +`<tr class="t"><th>Reste à payer</th><th>${mo(f.solde,f.devise)}</th></tr>`,{dates:`Émise le ${dfr(f.date_emission)}<br>Échéance ${dfr(f.echeance)}`})}

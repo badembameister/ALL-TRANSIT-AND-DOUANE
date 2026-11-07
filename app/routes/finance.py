@@ -19,6 +19,7 @@ from ..models import Avance, Avoir, Devis, Dossier, Facture, FactureLigne, Paiem
 from ..schemas import (AvanceIn, AvanceOut, AvoirIn, DevisIn, DevisOut, DevisStatutIn, FactureIn, FactureOut,
                        FacturerDevisIn, PaiementIn)
 from ..security import W_FACT, require
+from .admin import get_societe
 
 router = APIRouter(tags=["Facturation"])
 VOIR = ("Comptable", "Direction", "Commercial", "Responsable transit")
@@ -199,7 +200,7 @@ def _a_relancer(fs: list[Facture]) -> list[Facture]:
             and (not f.derniere_relance or (today - f.derniere_relance).days >= INTERVALLE_RELANCE)]
 
 
-def _lettre(f: Facture) -> str:
+def _lettre(f: Facture, societe: dict) -> str:
     n = _niveau(f.relances)
     corps = {
         "Rappel amiable": "Sauf erreur de notre part, le règlement de la facture ci-dessous ne nous est pas parvenu. "
@@ -212,12 +213,12 @@ def _lettre(f: Facture) -> str:
     return (f"Objet : {n} – facture {f.num}\n\nMadame, Monsieur,\n\n{corps}\n\nFacture {f.num} du {f.date_emission:%d/%m/%Y}, "
             f"échéance {f.echeance:%d/%m/%Y} ({f.jours_retard} jours de retard), dossier {f.dossier_num}.\n"
             f"Montant restant dû : {f.solde:,.2f} {f.devise}.\n\nVeuillez agréer nos salutations distinguées.\n"
-            f"Service comptabilité – Alliance Transit").replace(",", " ")
+            f"{societe['signature']} – {societe['nom']}").replace(",", " ")
 
 
 def _relancer(db: Session, u: User, f: Facture) -> dict:
     niveau = _niveau(f.relances)
-    lettre = _lettre(f)
+    lettre = _lettre(f, get_societe(db))
     f.relances += 1
     f.derniere_relance = date.today()
     audit(db, u, "facture", f.dossier_id, "relance", f"n°{f.relances} ({niveau}) pour {f.num}")
@@ -227,9 +228,10 @@ def _relancer(db: Session, u: User, f: Facture) -> dict:
 @router.get("/factures-relances")
 def relances_dues(_: User = Depends(require(*VOIR)), db: Session = Depends(get_db)):
     """Factures à relancer : échues depuis au moins 1 jour, sans relance depuis 15 jours."""
+    societe = get_societe(db)
     return [{"facture_id": f.id, "num": f.num, "client": f.client_nom, "solde": float(f.solde), "devise": f.devise,
              "jours_retard": f.jours_retard, "relances": f.relances, "derniere_relance": f.derniere_relance,
-             "niveau": _niveau(f.relances), "lettre": _lettre(f)}
+             "niveau": _niveau(f.relances), "lettre": _lettre(f, societe)}
             for f in _a_relancer(db.scalars(select(Facture).order_by(Facture.echeance)).all())]
 
 
