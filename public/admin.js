@@ -29,7 +29,7 @@ async function adSocSave(e){e.preventDefault();try{AD.S=await api('/societe',{me
 function adDev(){const P=AD.P,b=P.base;return`<div class="card tbl"><h3>Devises et taux de change</h3><p class="mut">Devise de base : <b>${esc(b)}</b>. Taux = valeur d’une unité de la devise en ${esc(b)}. ${P.rates_maj?`Dernière mise à jour des taux : ${dfr(P.rates_maj)}.`:''}</p>
 <form id="adrates" onsubmit="return adRatesSave(event)"><table><tr><th>Devise</th><th>Taux (en ${esc(b)})</th><th>Exemple</th><th></th></tr>
 ${Object.entries(P.rates).map(([k,v])=>`<tr><td class="mono">${esc(k)}${k===b?' <span class="b ok">Base</span>':''}</td><td>${k===b?'1':`<input name="${esc(k)}" type="number" step="any" min="0" value="${v}" required style="max-width:160px">`}</td>
-<td class="mut">${k===b?'—':`100 ${esc(k)} = ${nf(100*v)} ${esc(b)}`}</td><td>${k===b?'':`<button type="button" class="dg sm" onclick="adRateDel('${esc(k)}')">Retirer</button>`}</td></tr>`).join('')}</table>
+<td class="mut">${k===b?'—':`100 ${esc(k)} = ${nf(100*v)} ${esc(b)}`}</td><td>${k===b?'':`<button type="button" class="dg sm" onclick="adRateDel(${jsq(k)})">Retirer</button>`}</td></tr>`).join('')}</table>
 <div class="bar" style="margin-top:12px"><button class="pri">Enregistrer les taux</button><button type="button" class="ghost" onclick="adRateAdd()">Ajouter une devise</button></div></form>
 <p class="mut">Les factures déjà émises gardent leurs montants ; les nouveaux taux s’appliquent aux prochains calculs. Les déclarations transmises gardent leur liquidation figée. Chaque changement est tracé dans le journal.</p></div>`}
 function adRatesSave(e){e.preventDefault();const P=clone();for(const[k,v]of new FormData(e.target))P.rates[k]=+v;adSave(P,'Taux de change enregistrés.');return false}

@@ -1,4 +1,5 @@
 import datetime as _dt
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
@@ -19,12 +20,18 @@ class ORM(BaseModel):
 def strong(p: str) -> str:
     if len(p) < 10 or not any(c.isalpha() for c in p) or not any(c.isdigit() for c in p):
         raise ValueError("Le mot de passe doit contenir au moins 10 caractères, avec des lettres et des chiffres")
+    if len(p.encode()) > 72:  # limite de bcrypt : au-delà, la fin serait ignorée
+        raise ValueError("Le mot de passe ne doit pas dépasser 72 caractères")
     return p
+
+
+_EMAIL = re.compile(r"[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)+")
+_SIGNATURE = re.compile(r"data:image/png;base64,[A-Za-z0-9+/]+={0,2}")
 
 
 def clean_email(e: str) -> str:
     e = e.strip().lower()
-    if "@" not in e or " " in e or len(e) < 5:
+    if len(e) > 200 or not _EMAIL.fullmatch(e):
         raise ValueError("Adresse e-mail invalide")
     return e
 
@@ -690,7 +697,7 @@ class LivraisonIn(BaseModel):
     @field_validator("signature")
     @classmethod
     def _sig(cls, v: str) -> str:
-        if v and (not v.startswith("data:image/png;base64,") or len(v) > 300_000):
+        if v and (len(v) > 300_000 or not _SIGNATURE.fullmatch(v)):
             raise ValueError("Signature invalide (image PNG de 300 Ko maximum)")
         return v
 

@@ -16,6 +16,7 @@ from ..audit import audit
 from ..customs import compute
 from ..db import get_db
 from ..deps import dossier_for, get_params
+from ..fichiers import cellule_csv
 from ..models import Avance, Avoir, Devis, Dossier, Facture, FactureLigne, Paiement, User
 from ..schemas import (AvanceIn, AvanceOut, AvoirIn, DevisIn, DevisOut, DevisStatutIn, FactureIn, FactureOut,
                        FacturerDevisIn, PaiementIn)
@@ -336,7 +337,7 @@ def _csv(nom: str, entete: list[str], lignes) -> Response:
     w = csv.writer(out, delimiter=";")
     w.writerow(entete)
     for ln in lignes:
-        w.writerow([str(v).replace(".", ",") if isinstance(v, (Decimal, float)) else v for v in ln])
+        w.writerow([str(v).replace(".", ",") if isinstance(v, (Decimal, float)) else cellule_csv(v) for v in ln])
     return Response(out.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{nom}"'})
 

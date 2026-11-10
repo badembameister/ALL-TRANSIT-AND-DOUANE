@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ..audit import audit
 from ..db import Base, engine, get_db
 from ..deps import get_params
+from ..fichiers import cellule_csv
 from ..gateway import SimulatedGateway, gateway
 from ..models import Audit, Dossier, Facture, Param, User
 from ..schemas import ParamsIn, ShImportIn, ShIn, SocieteIn
@@ -161,7 +162,8 @@ def journal_csv(q: str = "", entite: str = "", utilisateur: str = "", du: Option
     w = csv.writer(out, delimiter=";")
     w.writerow(["Date", "Utilisateur", "Objet", "Identifiant", "Action", "Détail"])
     for a in _audit_filtre(db, q, entite, utilisateur, du, au, 5000):
-        w.writerow([a.ts.isoformat(sep=" ", timespec="seconds"), a.utilisateur, a.entite, a.entite_id, a.action, a.detail])
+        w.writerow([cellule_csv(v) for v in (a.ts.isoformat(sep=" ", timespec="seconds"), a.utilisateur, a.entite,
+                                             a.entite_id, a.action, a.detail)])
     return Response(out.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="journal-audit.csv"'})
 
@@ -190,7 +192,9 @@ def export_donnees(u: User = Depends(require()), db: Session = Depends(get_db)):
     """Export des données métier (sans fichiers joints ni mots de passe), pour archivage."""
     data = {}
     for t in Base.metadata.sorted_tables:
-        cols = [c for c in t.columns if not isinstance(c.type, LargeBinary) and c.name != "pwd"]
+        if t.name == "tentatives":  # échecs de connexion : données techniques, sans intérêt pour l'archivage
+            continue
+        cols = [c for c in t.columns if not isinstance(c.type, LargeBinary) and c.name not in ("pwd", "jeton_v")]
         data[t.name] = [dict(r._mapping) for r in db.execute(select(*cols))]
     audit(db, u, "parametres", 0, "export des données")
     db.commit()

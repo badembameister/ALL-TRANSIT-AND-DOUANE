@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, LargeBinary, Numeric, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .customs import required_docs
@@ -22,6 +22,15 @@ class User(Base):
     client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id"))
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
     notifs_vues_le: Mapped[Optional[datetime]] = mapped_column(DateTime)  # portail client : dernière lecture des notifications
+    jeton_v: Mapped[Optional[int]] = mapped_column(Integer)  # version des jetons : augmentée à chaque changement de mot de passe
+
+
+class Tentative(Base):
+    """Échec d'authentification, pour limiter les essais (en base : les fonctions Vercel n'ont pas de mémoire commune)."""
+    __tablename__ = "tentatives"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cle: Mapped[str] = mapped_column(String(260), index=True)  # « e:adresse », « ip:adresse » ou « pw:id »
+    ts: Mapped[datetime] = mapped_column(DateTime, index=True)
 
 
 class Client(Base):

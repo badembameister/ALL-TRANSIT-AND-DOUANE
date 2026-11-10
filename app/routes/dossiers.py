@@ -13,6 +13,7 @@ from ..audit import audit
 from ..customs import DOC_TYPES
 from ..db import get_db
 from ..deps import dossier_for, get_params
+from ..fichiers import nom_sur, verifier_contenu
 from ..jalons import CLES, jalons
 from ..models import Audit, Client, Conteneur, Cout, Declaration, Document, Dossier, Mission, Transit, User
 from ..schemas import CoutIn, CoutOut, DocumentOut, DossierIn, DossierOut, JalonIn, StatutIn
@@ -204,8 +205,9 @@ async def televerser(type: str = Form(...), fichier: UploadFile = File(...), d: 
     content = await fichier.read()
     if len(content) > MAX_BYTES:
         raise HTTPException(413, f"Fichier trop volumineux ({MAX_MB} Mo maximum)")
+    verifier_contenu(ext, content)
     version = 1 + sum(1 for x in d.documents if x.type == type)
-    doc = Document(dossier_id=d.id, type=type, version=version, nom_fichier=fichier.filename, contenu=content,
+    doc = Document(dossier_id=d.id, type=type, version=version, nom_fichier=nom_sur(fichier.filename), contenu=content,
                    depose_par=u.email)
     db.add(doc)
     audit(db, u, "document", d.id, "dépôt", f"{type} v{version}" + (" (par le client)" if u.role == "Client" else ""))
@@ -220,4 +222,4 @@ def telecharger(doc_id: int, u: User = Depends(current_user), db: Session = Depe
         raise HTTPException(404, "Document introuvable")
     ext = Path(doc.nom_fichier).suffix.lower()
     return Response(doc.contenu, media_type=MIME.get(ext, "application/octet-stream"),
-                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(doc.nom_fichier)}"})
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nom_sur(doc.nom_fichier))}"})

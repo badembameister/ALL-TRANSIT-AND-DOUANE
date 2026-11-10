@@ -16,7 +16,7 @@ from ..deps import dossier_for
 from ..models import MISSION_OUVERTE, Chauffeur, Conteneur, Dossier, Mission, User, Vehicule
 from ..schemas import (ChauffeurIn, ChauffeurOut, ConteneurIn, ConteneurOut, LivraisonIn, MissionIn,
                        MissionIncidentIn, MissionOut, MissionStatutIn, PositionIn, VehiculeIn, VehiculeOut)
-from ..security import STAFF, W_OPS, require
+from ..security import STAFF, W_OPS, current_user, require
 
 router = APIRouter(tags=["Transport et opérations"])
 LIRE = require(*STAFF)
@@ -292,8 +292,14 @@ def incident_mission(mid: int, body: MissionIncidentIn, u: User = Depends(ECRIRE
 
 
 @router.get("/dossiers/{did}/missions", response_model=list[MissionOut])
-def missions_dossier(d: Dossier = Depends(dossier_for), db: Session = Depends(get_db)):
-    return db.scalars(select(Mission).where(Mission.dossier_id == d.id).order_by(Mission.date_prevue)).all()
+def missions_dossier(d: Dossier = Depends(dossier_for), u: User = Depends(current_user), db: Session = Depends(get_db)):
+    missions = db.scalars(select(Mission).where(Mission.dossier_id == d.id).order_by(Mission.date_prevue)).all()
+    if u.role != "Client":
+        return missions
+    vues = [MissionOut.model_validate(m) for m in missions]  # un client ne voit ni consignes ni incidents internes
+    for m in vues:
+        m.instructions, m.incidents, m.note_livraison = "", [], ""
+    return vues
 
 
 # ---------- Synthèse ----------

@@ -8,11 +8,23 @@ Gestion du transit, du transport et de la douane (Guinée). Interface web (`publ
 3. Créez une base PostgreSQL : onglet **Storage** du projet, puis Neon (Marketplace). Copiez l'URL de connexion (de préférence l'URL « pooled ») dans la variable `DATABASE_URL`.
 4. Ajoutez les variables d'environnement (voir `.env.example`) : `DATABASE_URL`, `SECRET_KEY` (`openssl rand -hex 32`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
 5. Déployez. Au premier appel, les tables et le compte administrateur sont créés automatiquement.
-6. Vérifiez : `https://<votre-projet>.vercel.app/api/health` puis `/api/docs`.
+6. Vérifiez : `https://<votre-projet>.vercel.app/api/health`. La documentation interactive (`/api/docs`) est fermée en production ; pour l'ouvrir temporairement, ajoutez la variable `API_DOCS=1`.
 
 En ligne de commande : `npm i -g vercel && vercel --prod`.
 
-L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque.
+L'API refuse de démarrer sur Vercel si `SECRET_KEY` ou `ADMIN_PASSWORD` manque (ou garde sa valeur d'exemple), et de même hors Vercel dès que la base n'est plus le SQLite de développement.
+
+## Sécurité
+
+- **Connexion** : 8 échecs par adresse e-mail ou 30 par adresse IP sur 15 minutes, puis refus (code 429). Un administrateur lève le blocage d'un compte en réinitialisant son mot de passe. Les échecs sont comptés en base (table `tentatives`).
+- **Sessions** : jeton valable 8 heures, conservé dans l'onglet seulement. Un changement ou une réinitialisation de mot de passe, un changement de rôle ou une désactivation ferment toutes les sessions ouvertes du compte.
+- **Mots de passe** : 10 à 72 caractères, lettres et chiffres, hachés avec bcrypt.
+- **Fichiers reçus** : extension et premiers octets vérifiés, nom nettoyé, 4 Mo maximum, toujours rendus en téléchargement.
+- **Rôle Client** : n'accède qu'à ses dossiers, sans les notes internes, contrôles, consignes, incidents, coûts ni journal.
+- **En-têtes HTTP** : politique de contenu (CSP), anti-encadrement, HSTS, `nosniff` (`vercel.json` pour l'interface, `app/main.py` pour l'API). Les réponses de l'API ne sont jamais mises en cache.
+- **Exports CSV** : les cellules commençant par `=`, `+`, `-` ou `@` sont précédées d'une apostrophe (pas de formule exécutée dans le tableur).
+- **Interface** : toute donnée affichée passe par `esc` ; une valeur passée à un gestionnaire `onclick` passe par `jsq`.
+- Tests : `tests/test_securite.py`.
 
 ## Comptes et utilisateurs
 - **Compte administrateur** : il est créé automatiquement au premier appel de l'API, à partir de `ADMIN_EMAIL` et `ADMIN_PASSWORD`. Connectez-vous avec ces identifiants sur la page d'accueil.

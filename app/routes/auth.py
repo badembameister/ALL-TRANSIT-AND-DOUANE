@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..audit import audit
 from ..db import get_db
-from ..models import Client, User
+from ..models import Client, Tentative, User
 from ..schemas import ChangePwdIn, PasswordIn, UserIn, UserOut, UserPatch
-from ..security import current_user, hash_pwd, make_token, require, verify
+from ..security import (MAX_PAR_COMPTE, MAX_PAR_IP, adresse_ip, current_user, hash_pwd, make_token, noter_echec,
+                        oublier_echecs, require, verifier_essais, verify, verify_leurre)
 
 router = APIRouter(tags=["Authentification et utilisateurs"])
 
@@ -23,10 +24,20 @@ def _client_ok(db: Session, role: str, client_id):
 
 
 @router.post("/auth/login")
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    k_compte, k_ip = "e:" + form.username.strip().lower()[:200], "ip:" + adresse_ip(request)
+    verifier_essais(db, {k_compte: MAX_PAR_COMPTE, k_ip: MAX_PAR_IP})
     u = _par_email(db, form.username)
-    if not u or not u.actif or not verify(form.password, u.pwd):
+    if u and u.actif:
+        ok = verify(form.password, u.pwd)
+    else:
+        verify_leurre(form.password)
+        ok = False
+    if not ok:
+        noter_echec(db, k_compte, k_ip)
         raise HTTPException(401, "Identifiants incorrects")
+    oublier_echecs(db, k_compte)
+    db.commit()
     return {"access_token": make_token(u), "token_type": "bearer", "role": u.role}
 
 
@@ -35,14 +46,23 @@ def me(u: User = Depends(current_user)):
     return u
 
 
-@router.post("/auth/change-password", status_code=204)
+@router.post("/auth/change-password")
 def changer_mot_de_passe(body: ChangePwdIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Change le mot de passe, ferme les autres sessions et renvoie un nouveau jeton pour la session en cours."""
+    cle = f"pw:{u.id}"
+    verifier_essais(db, {cle: MAX_PAR_COMPTE})
     if not verify(body.ancien, u.pwd):
+        uid = u.id
+        noter_echec(db, cle)
+        audit(db, db.get(User, uid), "utilisateur", uid, "échec du changement de mot de passe")
+        db.commit()
         raise HTTPException(403, "Mot de passe actuel incorrect")
+    oublier_echecs(db, cle)
     u.pwd = hash_pwd(body.nouveau)
+    u.jeton_v = (u.jeton_v or 0) + 1
     audit(db, u, "utilisateur", u.id, "changement de mot de passe")
     db.commit()
-    return Response(status_code=204)
+    return {"access_token": make_token(u), "token_type": "bearer"}
 
 
 @router.get("/users", response_model=list[UserOut])
@@ -76,6 +96,8 @@ def modifier(uid: int, body: UserPatch, admin: User = Depends(require()), db: Se
     _client_ok(db, role, data.get("client_id", u.client_id))
     if role != "Client":
         data["client_id"] = None
+    if role != u.role or not actif:  # droits modifiés ou compte désactivé : les sessions ouvertes sont fermées
+        u.jeton_v = (u.jeton_v or 0) + 1
     for k, v in data.items():
         setattr(u, k, v)
     audit(db, admin, "utilisateur", u.id, "modification", ", ".join(f"{k}={v}" for k, v in data.items()))
@@ -89,6 +111,8 @@ def reinitialiser(uid: int, body: PasswordIn, admin: User = Depends(require()), 
     if not u:
         raise HTTPException(404, "Utilisateur introuvable")
     u.pwd = hash_pwd(body.password)
+    u.jeton_v = (u.jeton_v or 0) + 1  # ferme les sessions ouvertes avec l'ancien mot de passe
+    db.execute(delete(Tentative).where(Tentative.cle.in_([f"e:{u.email.lower()}", f"pw:{u.id}"])))  # lève un blocage
     audit(db, admin, "utilisateur", u.id, "réinitialisation du mot de passe", u.email)
     db.commit()
     return Response(status_code=204)

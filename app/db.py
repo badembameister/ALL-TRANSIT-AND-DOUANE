@@ -11,6 +11,8 @@ for old in ("postgres://", "postgresql://"):
     if URL.startswith(old):
         URL = "postgresql+psycopg://" + URL[len(old):]
 SERVERLESS = bool(os.getenv("VERCEL"))
+# Production : Vercel, ou toute base autre que le SQLite de développement. Les valeurs par défaut y sont refusées.
+PROD = SERVERLESS or not URL.startswith("sqlite")
 engine = create_engine(
     URL,
     connect_args={"check_same_thread": False} if URL.startswith("sqlite") else {},

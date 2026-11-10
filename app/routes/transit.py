@@ -1,6 +1,7 @@
 """Module transit : déclaration, itinéraire et bureaux, scellés, garantie, suivi jusqu'à l'apurement,
 incidents, alertes et historique des échanges avec le système douanier (cahier des charges, point 5)."""
 from datetime import date, datetime
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,7 +12,7 @@ from ..deps import dossier_for
 from ..gateway import gateway
 from ..models import OPEN_TRANSIT, Chauffeur, Dossier, Transit, User, Vehicule
 from ..schemas import IncidentIn, PassageIn, TransitIn, TransitionIn, TransitMessageIn, TransitOut
-from ..security import STAFF, W_TRANSIT, require
+from ..security import STAFF, W_TRANSIT, current_user, require
 
 router = APIRouter(tags=["Transit"])
 BASE = "/dossiers/{did}/transit"
@@ -99,8 +100,13 @@ def creer(body: TransitIn, d: Dossier = Depends(dossier_for), u: User = Depends(
 
 
 @router.get(BASE, response_model=TransitOut)
-def lire(d: Dossier = Depends(dossier_for)):
-    return _transit(d)
+def lire(d: Dossier = Depends(dossier_for), u: User = Depends(current_user)):
+    t = _transit(d)
+    if u.role != "Client":
+        return t
+    out = TransitOut.model_validate(t)  # un client suit l'avancement, sans les échanges, incidents ni garanties internes
+    out.messages, out.incidents, out.garantie, out.garantie_montant = [], [], "", Decimal(0)
+    return out
 
 
 @router.put(BASE, response_model=TransitOut)

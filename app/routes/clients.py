@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..fmt import milliers
 from ..audit import audit
 from ..db import get_db
+from ..fichiers import nom_sur, verifier_contenu
 from ..deps import get_params
 from ..models import Client, Contact, Conteneur, Declaration, Dossier, Facture, PiecePartenaire, Transit, User, Vehicule
 from ..schemas import ClientIn, ClientOut, ContactIn, ContactOut, PieceOut
@@ -200,13 +201,15 @@ async def deposer(cid: int, type: str = Form(...), expiration: str = Form(""), f
     content = await fichier.read()
     if len(content) > MAX_BYTES:
         raise HTTPException(413, f"Fichier trop volumineux ({MAX_MB} Mo maximum)")
+    verifier_contenu(ext, content)
+    nom = nom_sur(fichier.filename)
     try:
         exp = date.fromisoformat(expiration) if expiration else None
     except ValueError:
         raise HTTPException(422, "Date d'expiration invalide (AAAA-MM-JJ)")
-    p = PiecePartenaire(type=type, nom_fichier=fichier.filename, contenu=content, expiration=exp, depose_par=u.email)
+    p = PiecePartenaire(type=type, nom_fichier=nom, contenu=content, expiration=exp, depose_par=u.email)
     c.pieces.append(p)
-    audit(db, u, "client", c.id, "document", f"{type} : {fichier.filename}")
+    audit(db, u, "client", c.id, "document", f"{type} : {nom}")
     db.commit()
     return p
 
@@ -223,7 +226,7 @@ def telecharger(cid: int, pid: int, _: User = Depends(require(*STAFF)), db: Sess
     p = _piece(db, cid, pid)
     ext = Path(p.nom_fichier).suffix.lower()
     return Response(p.contenu, media_type=MIME.get(ext, "application/octet-stream"),
-                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(p.nom_fichier)}"})
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nom_sur(p.nom_fichier))}"})
 
 
 @router.delete("/{cid}/pieces/{pid}", status_code=204)

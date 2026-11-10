@@ -15,7 +15,7 @@ from ..deps import dossier_for, get_params
 from ..gateway import gateway
 from ..models import Cout, DeclMessage, Declaration, Dossier, User
 from ..schemas import DeclOut, MessageIn, QuittanceIn
-from ..security import STAFF, W_DOUANE, require
+from ..security import STAFF, W_DOUANE, current_user, require
 
 router = APIRouter(tags=["Douane"])
 BASE = "/dossiers/{did}/declaration"
@@ -82,13 +82,19 @@ def generer(d: Dossier = Depends(dossier_for), u: User = Depends(require(*W_DOUA
 
 
 @router.get(BASE, response_model=DeclOut)
-def lire(d: Dossier = Depends(dossier_for)):
-    return _decl(d)
+def lire(d: Dossier = Depends(dossier_for), u: User = Depends(current_user)):
+    x = _decl(d)
+    if u.role != "Client":
+        return x
+    out = DeclOut.model_validate(x)  # un client ne voit pas les notes internes
+    out.messages = [m for m in out.messages if m.sens != "interne"]
+    return out
 
 
 @router.get(BASE + "/calcul")
-def calcul(d: Dossier = Depends(dossier_for), db: Session = Depends(get_db)):
-    return {"liquidation": compute(d, get_params(db)), "controles": controls(d, {x.type for x in d.documents})}
+def calcul(d: Dossier = Depends(dossier_for), u: User = Depends(current_user), db: Session = Depends(get_db)):
+    controles = [] if u.role == "Client" else controls(d, {x.type for x in d.documents})  # contrôles : usage interne
+    return {"liquidation": compute(d, get_params(db)), "controles": controles}
 
 
 @router.post(BASE + "/transmettre", response_model=DeclOut)

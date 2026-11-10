@@ -120,6 +120,6 @@ def test_gestion_utilisateurs(c):
     h = {"Authorization": f"Bearer {ok.json()['access_token']}"}
     assert c.get("/users", headers=h).status_code == 403
     assert c.post("/auth/change-password", json={"ancien": "faux", "nouveau": "Autre2026Pass"}, headers=h).status_code == 403
-    assert c.post("/auth/change-password", json={"ancien": "NouveauPass2026", "nouveau": "Autre2026Pass"}, headers=h).status_code == 204
+    assert c.post("/auth/change-password", json={"ancien": "NouveauPass2026", "nouveau": "Autre2026Pass"}, headers=h).status_code == 200
     assert c.patch(f"/users/{uid}", json={"actif": False}).json()["actif"] is False
     assert c.post("/auth/login", data={"username": "agent@a.gn", "password": "Autre2026Pass"}).status_code == 401

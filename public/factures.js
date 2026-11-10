@@ -36,7 +36,7 @@ function fcList(){return`<div class="bar"><input placeholder="N° de facture, cl
 
 async function fcView(id){let f;try{f=await api('/factures/'+id)}catch(e){return fail('Facture',e)}const w=canF(),open=f.solde>0;
 info(`${esc(f.num)} ${badge(f.statut)}`,`<p class="mut">${esc(f.client_nom)}, dossier ${esc(f.dossier_num)}. Émise le ${dfr(f.date_emission)}, échéance ${dfr(f.echeance)}${f.jours_retard?`, <b>${f.jours_retard} jours de retard</b>`:''}.</p>
-${fcDetail(f)}<div class="bar" style="margin-top:14px">${w&&open?`<button class="pri" type="button" onclick="fcPay(${f.id},${f.solde},'${f.devise}')">Règlement</button><button class="ghost" type="button" onclick="fcAvoir(${f.id},${f.solde},'${f.devise}')">Avoir</button><button class="ghost" type="button" onclick="fcRelance(${f.id})">Relancer</button>`:''}
+${fcDetail(f)}<div class="bar" style="margin-top:14px">${w&&open?`<button class="pri" type="button" onclick="fcPay(${f.id},${+f.solde},${jsq(f.devise)})">Règlement</button><button class="ghost" type="button" onclick="fcAvoir(${f.id},${+f.solde},${jsq(f.devise)})">Avoir</button><button class="ghost" type="button" onclick="fcRelance(${f.id})">Relancer</button>`:''}
 <button class="ghost" type="button" onclick="fcPrint(${f.id})">Imprimer / PDF</button></div>`)}
 
 const fcDetail=f=>`<div class="tbl"><table>${f.lignes.map(l=>`<tr><td>${esc(l.libelle)}</td><td>${mo(l.montant,f.devise)}</td></tr>`).join('')}<tr><th>Total</th><th>${mo(f.total,f.devise)}</th></tr>
